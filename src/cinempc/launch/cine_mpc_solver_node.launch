@@ -1,0 +1,4 @@
+<launch>
+	<node name="cinempc_solver_node" pkg="cinempc" type="cinempc_solver_node"  output="screen">
+	</node>
+</launch>

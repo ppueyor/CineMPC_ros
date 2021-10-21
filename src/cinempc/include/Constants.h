@@ -1,0 +1,159 @@
+const double PI = 3.14159265358979323846;  //(mm)
+// position of the subject to record
+const double boy_x_gt = -47.4, boy_y_gt = -24.6, boy_z_gt = -5.85;  //, subject_z = 220; //cms
+const double girl_x_gt = 0, girl_y_gt = -5.9, girl_z_gt = -5.85;    //, subject_z = 220; //cms
+// starting position of the drone
+// const double drone_start_x = 75730.0, drone_start_y = 1960.0, drone_start_z = 2004;
+const double drone_start_x = -50, drone_start_y = 8, drone_start_z = -4.22;  // camera adjustement
+// rotations
+const double subject_yaw = PI / 2, drone_start_yaw = -PI / 2;
+
+const bool use_cv = false;
+const bool use_cineMPC = true;
+const int secs_first_constraints = 31;
+const int secs_third_constraints = 57;
+
+// constant values. Size of the sensor in mm and px
+const double sensor_height_mm = 13.365, sensor_width_mm = 23.76;  //(mm) Filmback, Digital Film 16:9
+const double picture_height_px = 540, picture_width_px = 960;     //(px)
+const double person_heigth_m = 2;                                 // meters
+
+const double camera_adjustement_m =
+    0;  // 0.46 / 2; //In the BP of the camera, difference with body of the drone. / by 2 because scale
+
+// bounding box
+const double bounding_heigth = 180, bounding_width = 160;
+
+// desired image/bounding box pixels
+const double desired_y_pixels_up = 100;
+const double desired_y_pixels_down = 230;
+const double desired_y_pixels_center = picture_height_px / 2;
+const double desired_x_pixels_left = 400;
+const double desired_x_pixels_center = picture_width_px / 2;
+const double desired_x_pixels_right = 560;
+
+const double image_x_third_left = picture_width_px / 3;
+const double image_x_third_right = 2 * picture_width_px / 3;
+const double image_x_center = picture_width_px / 2;
+
+const double image_y_third_down = 2 * picture_height_px / 3;
+const double image_y_third_up = picture_height_px / 3;
+const double image_y_center = picture_height_px / 2;
+
+const double desired_distance = 5;  // meters
+
+const double desired_x_near_distance_acceptable_initial = 30;  // meters
+const double desired_far_distance_acceptable = 59.92;          // meters
+
+const double desired_image_relative_yaw = 0;  // meters
+const double desired_relative_yaw = PI;
+const double desired_relative_pitch = 2 * PI / 6;
+
+const int MPC_N = 5;
+const float dt = 0.3;  // sample period MPC
+
+const double min_value = -99999999, max_value = 99999999;
+
+// constraints
+const double x_lowest = -40, x_highest = 40;
+const double y_lowest = min_value, y_highest = max_value;
+const double z_lowest = min_value, z_highest = 50;
+const double foc_lowest = 20, foc_highest = 600;
+const double aperture_lowest = 1.2, aperture_highest = 22;
+
+const double velos = 2.5;
+const double vel_x_lowest = -velos, vel_x_highest = velos;
+const double vel_y_lowest = -velos, vel_y_highest = velos;
+const double vel_z_lowest = -velos, vel_z_highest = velos;
+
+const double vel_ang = 0.5;
+const double vel_ang_x_lowest = -vel_ang, vel_ang_x_highest = vel_ang;
+const double vel_ang_y_lowest = -vel_ang, vel_ang_y_highest = vel_ang;
+const double vel_ang_z_lowest = -vel_ang, vel_ang_z_highest = vel_ang;
+
+const double vel_foc_lowest = min_value, vel_foc_highest = 40;
+const double vel_aperture_lowest = min_value, vel_aperture_highest = max_value;
+
+const double accel = 1.2;
+const double a_x_lowest = -accel, a_x_highest = accel;
+const double a_y_lowest = -accel, a_y_highest = accel;
+const double a_z_lowest = -accel, a_z_highest = accel;
+
+const double circle_confusion = 0.03;  //(mm)
+
+struct Pixel
+{
+  double x;
+  double y;
+  Pixel(double xc, double yc) : x(xc), y(yc)
+  {
+  }
+};
+
+struct RPY
+{
+  double roll = 0;
+  double pitch = 0;
+  double yaw = 0;
+
+  RPY(){};
+  RPY(double rollc, double pitchc, double yawc) : roll(rollc), pitch(pitchc), yaw(yawc)
+  {
+  }
+};
+
+struct DoF_star
+{
+  double dn;
+  double df;
+};
+
+struct Img_star
+{
+  Pixel img_pos;
+};
+
+struct P_star_weights
+{
+  double d;
+  double R;  // RPY
+};
+
+struct P_star
+{
+  double d;
+  RPY R;  // yaw for now
+};
+struct Weights
+{
+  double w_dn;
+  double w_df;
+  Pixel w_im_boy_up;
+  Pixel w_im_boy_down;
+  Pixel w_im_girl_up;
+  Pixel w_im_girl_down;
+  P_star_weights w_p_boy;
+  P_star_weights w_p_girl;
+};
+
+struct Constraints
+{
+  DoF_star doF_star;
+  Img_star im_pos_boy_up;
+  Img_star im_pos_boy_down;
+  Img_star im_pos_girl_up;
+  Img_star im_pos_girl_down;
+  P_star p_boy;
+  P_star p_girl;
+  Weights weights;
+};
+
+// Definition of sequences
+const int start_sequence_1 = 0;
+// const int start_sequence_2 = 100;
+// const int start_sequence_3 = 100;
+// const int start_sequence_4 = 100;
+//
+const int start_sequence_2 = 20;
+const int start_sequence_3 = 35;
+const int start_sequence_4 = 60;

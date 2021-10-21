@@ -1,0 +1,3 @@
+geometry_msgs/Pose current_pose
+---
+geometry_msgs/PoseArray pose_array

@@ -1,0 +1,4 @@
+std_msgs/Header header
+geometry_msgs/Pose drone_pose
+IntrinsicsCamera instrinsics
+geometry_msgs/Vector3 velocity
