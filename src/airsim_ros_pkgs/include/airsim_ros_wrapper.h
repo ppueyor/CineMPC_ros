@@ -413,7 +413,7 @@ private:
   std::mutex drone_control_mutex_;
 
   // gimbal control
-  bool has_gimbal_cmd_;
+  bool has_gimbal_cmd_ = false;
   GimbalCmd gimbal_cmd_;
 
   /// ROS tf

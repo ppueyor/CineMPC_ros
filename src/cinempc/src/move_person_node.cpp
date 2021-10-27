@@ -31,32 +31,30 @@ bool getNStepsTargetService(cinempc::GetNextPersonPoses::Request &req, cinempc::
 	geometry_msgs::Pose current_pose;
 	if (i < MPC_N)
 	{
-	  current_pose.position.x =
-		  initial_state.pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * i;
-	  current_pose.position.y =
-		  initial_state.pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * i;
-	  current_pose.position.z = initial_state.pose.position.z;
+	  current_pose.position.x = initial_pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * i;
+	  current_pose.position.y = initial_pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * i;
+	  current_pose.position.z = initial_pose.position.z;
 	}
 	else
 	{
 	  if (sequence == 1 || sequence == 3)
 	  {
 		current_pose.position.x =
-			initial_state.pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * (i - MPC_N);
+			initial_pose.position.x;  // + move_target_x_per_step.at(index) * move_person_step_dt * (i - MPC_N);
 		current_pose.position.y =
-			initial_state.pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * (i - MPC_N);
-		current_pose.position.z = initial_state.pose.position.z + 0.5;
+			initial_pose.position.y;  // + move_target_y_per_step.at(index) * move_person_step_dt * (i - MPC_N);
+		current_pose.position.z = initial_pose.position.z + 0.5;
 	  }
 	  else
 	  {
 		current_pose.position.x =
-			initial_state.pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * (i - MPC_N);
+			initial_pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * (i - MPC_N);
 		current_pose.position.y =
-			initial_state.pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * (i - MPC_N);
-		current_pose.position.z = initial_state.pose.position.z + 1.2;
+			initial_pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * (i - MPC_N);
+		current_pose.position.z = initial_pose.position.z + 1.2;
 	  }
 	}
-	current_pose.orientation = initial_state.pose.orientation;
+	current_pose.orientation = initial_pose.orientation;
 	array_of_poses.push_back(current_pose);
   }
   res.pose_array.poses = array_of_poses;
@@ -85,6 +83,9 @@ int main(int argc, char **argv)
 	mpc_n_target_steps_service.push_back(
 		n.advertiseService<cinempc::GetNextPersonPoses::Request, cinempc::GetNextPersonPoses::Response>(
 			"cinempc/" + targets.at(i) + "/get_next_poses", boost::bind(&getNStepsTargetService, _1, _2, i)));
+	move_target_x_per_step.push_back(0);  // - camera_adjustement;
+	move_target_y_per_step.push_back(0);
+	yaw_target.push_back(0);
   }
 
   ros::Publisher move_person_pub = n.advertise<geometry_msgs::Pose>("airsim_node/Person1/set_pose", 1000);
@@ -93,9 +94,6 @@ int main(int argc, char **argv)
 
   ros::Rate loop_rate(33);
 
-  move_target_x_per_step.push_back(0);	// - camera_adjustement;
-  move_target_y_per_step.push_back(0);
-  yaw_target.push_back(0);
   while (ros::ok())
   {
 	if (sequence == 1.5 || sequence == 2)

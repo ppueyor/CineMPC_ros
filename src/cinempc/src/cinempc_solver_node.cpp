@@ -11,8 +11,6 @@ using namespace Eigen;
 using namespace std;
 // Set the timestep length and duration
 
-int number_targets = 0;
-
 std::vector<cinempc::TargetStates> target_states;
 
 struct Pixel_MPC
@@ -310,7 +308,7 @@ public:
 	for (int t = 0; t < MPC_N; t++)
 	{
 	  AD<double> Jp = 0, Jim = 0, JDoF = 0;
-	  for (int j = 0; j < number_targets; j++)
+	  for (int j = 0; j < target_states.size(); j++)
 	  {
 		// calculate relative distances
 		AD<double> relative_x_target = target_states.at(j).poses_up.at(t).position.x - (vars[x_start + t]);
@@ -350,17 +348,25 @@ public:
 		AD<double> current_pixel_u_target = pixel_up_target.x;
 		AD<double> current_pixel_v_target_up = pixel_up_target.y;
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
+		if (constraints.weights.w_img_targets.at(j).x > 0)
+		{
+		  AD<double> cost_pixel_u_target =
+			  CppAD::pow(current_pixel_u_target - constraints.targets_im_up_star.at(j).x, 2);
+		  Jim += constraints.weights.w_img_targets.at(j).x * cost_pixel_u_target;
+		}
+		if (constraints.weights.w_img_targets.at(j).y > 0)
+		{
+		  AD<double> cost_pixel_v_target_up =
+			  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_up_star.at(j).y, 2);
+		  Jim += constraints.weights.w_img_targets.at(j).y * cost_pixel_v_target_up;
+		}
 
-		AD<double> cost_pixel_u_target = CppAD::pow(current_pixel_u_target - constraints.targets_im_up_star.at(j).x, 2);
-		Jim += constraints.weights.w_img_targets.at(j).x * cost_pixel_u_target;
-
-		AD<double> cost_pixel_v_target_up =
-			CppAD::pow(current_pixel_v_target_up - constraints.targets_im_up_star.at(j).y, 2);
-		Jim += constraints.weights.w_img_targets.at(j).y * cost_pixel_v_target_up;
-
-		AD<double> cost_pixel_v_target_down =
-			CppAD::pow(current_pixel_v_target_down - constraints.targets_im_down_star.at(j).y, 2);
-		Jim += constraints.weights.w_img_targets.at(j).z * cost_pixel_v_target_down;
+		if (constraints.weights.w_img_targets.at(j).z > 0)
+		{
+		  AD<double> cost_pixel_v_target_down =
+			  CppAD::pow(current_pixel_v_target_down - constraints.targets_im_down_star.at(j).y, 2);
+		  Jim += constraints.weights.w_img_targets.at(j).z * cost_pixel_v_target_down;
+		}
 
 		// Cost_P
 		distance_2D_target = calculateDistanceToPoint(0, 0, relative_x_target, relative_y_target);
@@ -372,24 +378,28 @@ public:
 
 		RPY_AD rot_plot;
 		RPY_AD rot_plot_d;
-
-		double roll, pitch, yaw;
-		tf2::Quaternion quat_tf;
-		tf2::fromMsg(constraints.targets_orientation_star.at(j), quat_tf);
-		tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-
-		Eigen::Matrix<AD<double>, 3, 3> drone_R_star = RPYtoRMatrix(roll, pitch, yaw);
-		Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target = new_drone_R.transpose() * drone_R_target;
-		rot_plot = RMatrixtoRPY(new_drone_R_target);
-		rot_plot_d = RMatrixtoRPY(drone_R_star);
-		if (t == 0)
+		if (constraints.weights.w_R_targets.at(j) > 0)
 		{
-		  logRPY(drone_R_star, "drone_R_star");
-		  logRPY(new_drone_R_target, "new_drone_R_target");
+		  double roll, pitch, yaw;
+		  tf2::Quaternion quat_tf;
+		  tf2::fromMsg(constraints.targets_orientation_star.at(j), quat_tf);
+		  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
+
+		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star = RPYtoRMatrix(roll, pitch, yaw);
+		  Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target = new_drone_R.transpose() * drone_R_target;
+		  rot_plot = RMatrixtoRPY(new_drone_R_target);
+		  rot_plot_d = RMatrixtoRPY(drone_R_star);
+		  if (t == 0)
+		  {
+			logRPY(drone_R_star, "drone_R_star");
+			logRPY(new_drone_R_target, "new_drone_R_target");
+		  }
+
+		  AD<double> cost_R_target = (new_drone_R_target - drone_R_star).norm();
+		  Jp += constraints.weights.w_R_targets.at(j) * cost_R_target;
 		}
 
-		AD<double> cost_R_target = (new_drone_R_target - drone_R_star).norm();
-		Jp += constraints.weights.w_R_targets.at(j) * cost_R_target;
+		fg[0] += Jp + Jim + JDoF;
 
 		if (t == 0 && j == 0)
 		{
@@ -403,7 +413,10 @@ public:
 		  hyper_plot = hyperfocal_distance_mms;
 		  dn_plot = near_acceptable_distance;
 		  df_plot = far_acceptable_distance;
-
+		  d_target_plot.at(t) = distance_2D_target;
+		  current_pixel_target_up_plot.at(t).x = current_pixel_u_target;
+		  current_pixel_target_up_plot.at(t).y = current_pixel_v_target_up;
+		  current_pixel_target_down_plot.at(t).y = current_pixel_v_target_down;
 		  //   d_boy_plot = distance_2D_boy;
 		  //   d_girl_plot = distance_2D_girl;
 		  //   current_pixel_u_boy_plot = current_pixel_u_boy;
@@ -429,54 +442,33 @@ public:
 					<< "   dn_desired:  " << constraints.dn_star << std::endl
 					<< "   Df:  " << far_acceptable_distance << std::endl
 					<< "   df_desired:  " << constraints.df_star << std::endl;
-		  //
-		  //				std::cout << "RELATIVE DISTANCE " << std::endl << "--------- "
-		  //						<< std::endl << "   relative_boy_mpc_x_var:  "
-		  //						<< relative_boy_mpc_x_var << std::endl
-		  //						<< "   relative_boy_mpc_y_var:  "
-		  //						<< relative_boy_mpc_y_var << std::endl
-		  //						<< "   relative_boy_mpc_z_var:  "
-		  //						<< relative_boy_mpc_z_up_var << std::endl;
-		  //
-		  //				std::cout << "IMAGE " << std::endl << "--------- " << std::endl
-		  //						<< "   current_pixel_u_boy:  " << current_pixel_u_boy
-		  //						<< std::endl << "   current_pixel_u_boy_desired:  "
-		  //						<< constraints.im_pos_boy_up.img_pos.x << std::endl
-		  //						<< "   current_pixel_v_up_boy:  "
-		  //						<< current_pixel_v_boy_up << std::endl
-		  //						<< "   current_pixel_v_boy_up_desired:  "
-		  //						<< constraints.im_pos_boy_up.img_pos.y << std::endl
-		  //						<< "   current_pixel_v_down_boy:  "
-		  //						<< current_pixel_v_boy_down << std::endl
-		  //						<< "   current_pixel_v_boy_down_desired:  "
-		  //						<< constraints.im_pos_boy_down.img_pos.y << std::endl
-		  //						<< "   current_pixel_u_girl:  " << current_pixel_u_girl
-		  //						<< std::endl << "   current_pixel_u_girl_desired:  "
-		  //						<< constraints.im_pos_girl_up.img_pos.x << std::endl
-		  //						<< "   current_pixel_v_up_girl:  "
-		  //						<< current_pixel_v_girl_up << std::endl
-		  //						<< "   current_pixel_v_girl_up_desired:  "
-		  //						<< constraints.im_pos_girl_up.img_pos.y << std::endl
-		  //						<< "   current_pixel_v_down_girl:  "
-		  //						<< current_pixel_v_girl_down << std::endl
-		  //						<< "   current_pixel_v_girl_down_desired:  "
-		  //						<< constraints.im_pos_girl_down.img_pos.y << std::endl;
-		  //
-		  //				std::cout << "P " << std::endl << "--------- " << std::endl
-		  //						<< "   d_boy:  " << distance_2D_boy << std::endl
-		  //						<< "   d_boy_desired:  " << constraints.p_boy.d
-		  //						<< std::endl << "   yaw_boy:  " << std::endl
-		  //						<< "   yaw_boy_desired:  " << constraints.p_boy.R.yaw
-		  //						<< endl << "   pitch_boy:  " << std::endl
-		  //						<< "   pitch_boy_desired:  "
-		  //						<< constraints.p_boy.R.pitch << std::endl
-		  //						<< "   d_girl:  " << relative_girl_mpc_x_var
-		  //						<< std::endl << "   d_girl_desired:  "
-		  //						<< constraints.p_girl.d << std::endl;
+
+		  std::cout << "RELATIVE DISTANCE " << std::endl
+					<< "--------- " << std::endl
+					<< "   relative_boy_mpc_x_var:  " << relative_x_target << std::endl
+					<< "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
+					<< "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl;
+
+		  std::cout << "IMAGE " << std::endl
+					<< "--------- " << std::endl
+					<< "   current_pixel_u_boy:  " << current_pixel_u_target << std::endl
+					<< "   current_pixel_u_boy_desired:  " << constraints.targets_im_up_star.at(j).x << std::endl
+					<< "   current_pixel_v_up_boy:  " << current_pixel_v_target_up << std::endl
+					<< "   current_pixel_v_boy_up_desired:  " << constraints.targets_im_up_star.at(j).y << std::endl
+					<< "   current_pixel_v_down_boy:  " << current_pixel_v_target_down << std::endl
+					<< "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_down_star.at(j).y
+					<< std::endl;
+
+		  std::cout << "P " << std::endl
+					<< "--------- " << std::endl
+					<< "   d_boy:  " << distance_2D_target << std::endl
+					<< "   d_boy_desired:  " << constraints.targets_d_star.at(j) << std::endl
+					<< "   yaw_boy:  " << std::endl
+					<< "   yaw_boy_desired:  " << constraints.targets_orientation_star.at(j).x << endl
+					<< "   pitch_boy:  " << std::endl
+					<< "   pitch_boy_desired:  " << constraints.targets_orientation_star.at(j).y << std::endl;
 		}
 	  }
-
-	  fg[0] += Jp + Jim + JDoF;
 	}
 	///////////////////////////////
 	////// setup constraints //////
@@ -614,12 +606,18 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	vars[i] = 0;
   }
 
+  for (int i = 0; i < target_states.size(); i++)
+  {
+	Pixel_MPC empty_pixel;
+	d_target_plot.push_back(0);
+	current_pixel_target_up_plot.push_back(empty_pixel);
+	current_pixel_target_down_plot.push_back(empty_pixel);
+  }
+
   // Set the initial variable values
   vars[x_start] = msg->drone_state.drone_pose.position.x;
   vars[y_start] = msg->drone_state.drone_pose.position.y;
   vars[z_start] = msg->drone_state.drone_pose.position.z;
-
-  double roll, pitch, yaw;
 
   RPY rpy = quatToRPY(msg->drone_state.drone_pose.orientation);
 
@@ -695,7 +693,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  if (use_cineMPC)
 	  {
 		lowerbound = 30;
-		upperbound = 200;
+		upperbound = 300;
 	  }
 	  else
 	  {
@@ -819,9 +817,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   constraints_lowerbound[y_start + MPC_N - 1] = msg->drone_state.drone_pose.position.y;
   constraints_lowerbound[z_start + MPC_N - 1] = msg->drone_state.drone_pose.position.z;
 
-  constraints_lowerbound[roll_gimbal_start + MPC_N - 1] = roll;
-  constraints_lowerbound[pitch_gimbal_start + MPC_N - 1] = pitch;
-  constraints_lowerbound[yaw_gimbal_start + MPC_N - 1] = yaw;
+  constraints_lowerbound[roll_gimbal_start + MPC_N - 1] = rpy.roll;
+  constraints_lowerbound[pitch_gimbal_start + MPC_N - 1] = rpy.pitch;
+  constraints_lowerbound[yaw_gimbal_start + MPC_N - 1] = rpy.yaw;
 
   constraints_lowerbound[focus_distance_start + MPC_N - 1] = msg->drone_state.instrinsics.focus_distance;
   constraints_lowerbound[focal_length_start + MPC_N - 1] = msg->drone_state.instrinsics.focal_length;
@@ -835,9 +833,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   constraints_upperbound[y_start + MPC_N - 1] = msg->drone_state.drone_pose.position.y;
   constraints_upperbound[z_start + MPC_N - 1] = msg->drone_state.drone_pose.position.z;
 
-  constraints_upperbound[roll_gimbal_start + MPC_N - 1] = roll;
-  constraints_upperbound[pitch_gimbal_start + MPC_N - 1] = pitch;
-  constraints_upperbound[yaw_gimbal_start + MPC_N - 1] = yaw;
+  constraints_upperbound[roll_gimbal_start + MPC_N - 1] = rpy.roll;
+  constraints_upperbound[pitch_gimbal_start + MPC_N - 1] = rpy.pitch;
+  constraints_upperbound[yaw_gimbal_start + MPC_N - 1] = rpy.yaw;
 
   constraints_upperbound[focus_distance_start + MPC_N - 1] = msg->drone_state.instrinsics.focus_distance;
   constraints_upperbound[focal_length_start + MPC_N - 1] = msg->drone_state.instrinsics.focal_length;
@@ -880,70 +878,80 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 
   // Check some of the solution values
   ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
-  auto cost = solution.obj_value;
-
-  cinempc::MPCResult response_msg;
-
-  response_msg.cost = cost;
-  AD<double> vel_ang_x = solution.x[vel_ang_x_start];
-  AD<double> vel_ang_y = solution.x[vel_ang_y_start];
-  AD<double> vel_ang_z = solution.x[vel_ang_z_start];
-  for (int i = 0; i < MPC_N; i++)
+  if (!ok)
   {
-	airsim_ros_pkgs::DroneAndCameraState state;
-	state.drone_pose.position.x = solution.x[x_start + i];
-	state.drone_pose.position.y = solution.x[y_start + i];
-	state.drone_pose.position.z = solution.x[z_start + i];
+	auto cost = solution.obj_value;
 
-	tf2::Quaternion quaternion_tf;
-	quaternion_tf.setRPY(solution.x[roll_gimbal_start + i], solution.x[pitch_gimbal_start + i],
-						 solution.x[yaw_gimbal_start + i]);
-	quaternion_tf.normalize();
+	cinempc::MPCResult response_msg;
 
-	geometry_msgs::Quaternion quat_msg = tf2::toMsg(quaternion_tf);
+	response_msg.cost = cost;
+	AD<double> vel_ang_x = solution.x[vel_ang_x_start];
+	AD<double> vel_ang_y = solution.x[vel_ang_y_start];
+	AD<double> vel_ang_z = solution.x[vel_ang_z_start];
+	for (int i = 0; i < MPC_N; i++)
+	{
+	  airsim_ros_pkgs::DroneAndCameraState state;
+	  state.drone_pose.position.x = solution.x[x_start + i];
+	  state.drone_pose.position.y = solution.x[y_start + i];
+	  state.drone_pose.position.z = solution.x[z_start + i];
 
-	state.drone_pose.orientation = quat_msg;
+	  tf2::Quaternion quaternion_tf;
+	  quaternion_tf.setRPY(solution.x[roll_gimbal_start + i], solution.x[pitch_gimbal_start + i],
+						   solution.x[yaw_gimbal_start + i]);
+	  quaternion_tf.normalize();
 
-	state.instrinsics.focus_distance = solution.x[focus_distance_start + i];
-	state.instrinsics.focal_length = solution.x[focal_length_start + i];
-	state.instrinsics.aperture = solution.x[aperture_start + i];
+	  geometry_msgs::Quaternion quat_msg = tf2::toMsg(quaternion_tf);
 
-	state.velocity.x = solution.x[vel_x_start + i];
-	state.velocity.y = solution.x[vel_y_start + i];
-	state.velocity.z = solution.x[vel_z_start + i];
+	  state.drone_pose.orientation = quat_msg;
 
-	response_msg.mpc_n_states.push_back(state);
+	  state.instrinsics.focus_distance = solution.x[focus_distance_start + i];
+	  state.instrinsics.focal_length = solution.x[focal_length_start + i];
+	  state.instrinsics.aperture = solution.x[aperture_start + i];
+
+	  state.velocity.x = solution.x[vel_x_start + i];
+	  state.velocity.y = solution.x[vel_y_start + i];
+	  state.velocity.z = solution.x[vel_z_start + i];
+
+	  response_msg.mpc_n_states.push_back(state);
+	}
+
+	response_msg.plot_values.push_back(Value(hyper_plot));
+	// response_msg.plot_values.push_back(Value(vel_ang_x));
+	// response_msg.plot_values.push_back(Value(vel_ang_y));
+	// response_msg.plot_values.push_back(Value(vel_ang_z));
+	response_msg.plot_values.push_back(Value(roll_plot));
+	response_msg.plot_values.push_back(Value(pitch_plot));
+	response_msg.plot_values.push_back(Value(yaw_plot));
+	response_msg.plot_values.push_back(Value(roll_plot_d));
+	response_msg.plot_values.push_back(Value(pitch_plot_d));
+	response_msg.plot_values.push_back(Value(yaw_plot_d));
+	response_msg.plot_values.push_back(Value(dn_plot));
+	response_msg.plot_values.push_back(Value(df_plot));
+	for (int i = 0; i < target_states.size(); i++)
+	{
+	  response_msg.plot_values.push_back(Value(d_target_plot.at(i)));
+	  response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).x));
+	  response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).y));
+	  response_msg.plot_values.push_back(Value(current_pixel_target_down_plot.at(i).x));
+	}
+	response_msg.plot_values.push_back(Value(current_Ji));
+	response_msg.plot_values.push_back(Value(current_Jp));
+	response_msg.plot_values.push_back(Value(current_JDoF));
+
+	results_pub.publish(response_msg);
   }
-  response_msg.plot_values.push_back(Value(hyper_plot));
-  response_msg.plot_values.push_back(Value(vel_ang_x));
-  response_msg.plot_values.push_back(Value(vel_ang_y));
-  response_msg.plot_values.push_back(Value(vel_ang_z));
-  response_msg.plot_values.push_back(Value(roll_plot));
-  response_msg.plot_values.push_back(Value(pitch_plot));
-  response_msg.plot_values.push_back(Value(yaw_plot));
-  response_msg.plot_values.push_back(Value(roll_plot_d));
-  response_msg.plot_values.push_back(Value(pitch_plot_d));
-  response_msg.plot_values.push_back(Value(yaw_plot_d));
-  response_msg.plot_values.push_back(Value(dn_plot));
-  response_msg.plot_values.push_back(Value(df_plot));
-  for (int i = 0; i < number_targets; i++)
-  {
-	response_msg.plot_values.push_back(Value(d_target_plot.at(i)));
-	response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).x));
-	response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).y));
-	response_msg.plot_values.push_back(Value(current_pixel_target_down_plot.at(i).x));
-  }
-  response_msg.plot_values.push_back(Value(current_Ji));
-  response_msg.plot_values.push_back(Value(current_Jp));
-  response_msg.plot_values.push_back(Value(current_JDoF));
-
-  results_pub.publish(response_msg);
 }
 
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "cinempc_solver");
   ros::NodeHandle n;
+
+  ros::ServiceClient service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
+  airsim_ros_pkgs::Takeoff srv;
+  srv.request.waitOnLastTask = false;
+
+  service_take_off.call(srv);
 
   ros::Subscriber new_state_received_sub =
 	  n.subscribe<cinempc::MPCIncomingState>("cinempc/current_state", 1000, newStateReceivedCallback);

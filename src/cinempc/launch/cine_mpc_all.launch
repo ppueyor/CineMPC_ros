@@ -1,12 +1,12 @@
 <launch> 
 <!-- AirSim all -->
-	<include file="$(find airsim_ros_pkgs)/launch/airsim_all.launch"/>
+<!--	<include file="$(find airsim_ros_pkgs)/launch/airsim_all.launch"/>-->
 <!-- Move Person Node -->
 	<include file="$(find cinempc)/launch/move_person_node.launch"/>	
 <!-- Change sequence Node -->
-	<include file="$(find cinempc)/launch/change_sequence_node.launch"/>	
+<!--	<include file="$(find cinempc)/launch/change_sequence_node.launch"/>	-->
 <!-- Cinempc solver node -->
 	<include file="$(find cinempc)/launch/cine_mpc_solver_node.launch"/>	
 <!-- Cinempc main node -->
-	<include file="$(find cinempc)/launch/cine_mpc_main_node.launch"/>	
+	<!--<include file="$(find cinempc)/launch/cine_mpc_solver_node.launch"/>	-->
 </launch>

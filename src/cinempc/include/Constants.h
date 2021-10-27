@@ -1,10 +1,5 @@
 const double PI = 3.14159265358979323846;  //(mm)
 // position of the subject to record
-const double boy_x_gt = -47.4, boy_y_gt = -24.6, boy_z_gt = -5.85;  //, subject_z = 220; //cms
-const double girl_x_gt = 0, girl_y_gt = -5.9, girl_z_gt = -5.85;    //, subject_z = 220; //cms
-// starting position of the drone
-// const double drone_start_x = 75730.0, drone_start_y = 1960.0, drone_start_z = 2004;
-const double drone_start_x = -50, drone_start_y = 8, drone_start_z = -4.22;  // camera adjustement
 // rotations
 const double subject_yaw = PI / 2, drone_start_yaw = -PI / 2;
 

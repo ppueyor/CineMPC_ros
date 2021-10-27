@@ -218,13 +218,14 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
     IntrinsicsPublisher camera_publisher;
     camera_publisher.camera_name = "";
     camera_publisher.publisher =
-        nh_private_.advertise<airsim_ros_pkgs::IntrinsicsCamera>(curr_vehicle_name + "/" + "" + "/intrinsics", 10);
+        nh_private_.advertise<airsim_ros_pkgs::IntrinsicsCamera>(curr_vehicle_name + "/" + "" + "/get_intrinsics", 10);
+
     vehicle_ros->intrinsics_pub_vec.push_back(camera_publisher);
 
     IntrinsicsSubscriber camera_subscriber;
     camera_subscriber.camera_name = "";
     camera_subscriber.subscriber = nh_private_.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
-        curr_vehicle_name + "/" + "" + "/intrinsics", 1,
+        curr_vehicle_name + "/" + "" + "/set_intrinsics", 1,
         boost::bind(&AirsimROSWrapper::set_intrinsics_cb, this, _1, curr_vehicle_name, ""));
     vehicle_ros->intrinsics_sub_vec.push_back(camera_subscriber);
 
@@ -788,12 +789,6 @@ bool AirsimROSWrapper::move_on_path_srv_cb(airsim_ros_pkgs::MoveOnPath::Request&
   std::vector<Vector3r> path;
   for (const geometry_msgs::Point point : request.positions)
   {
-    ROS_WARN("%s", vehicle_name.c_str());
-    ROS_WARN("%f", request.vel);
-    ROS_WARN("%f", point.x);
-    ROS_WARN("%f", point.y);
-    ROS_WARN("%f", point.z);
-    ROS_WARN("%f", request.timeout);
     Vector3r vec(point.x, point.y, point.z);
     path.push_back(vec);
   }

@@ -1,4 +1,7 @@
+#include <airsim_ros_pkgs/GimbalAngleQuatCmd.h>
 #include <airsim_ros_pkgs/IntrinsicsCamera.h>
+#include <airsim_ros_pkgs/MoveOnPath.h>
+#include <airsim_ros_pkgs/Takeoff.h>
 #include <cinempc/Constraints.h>
 #include <cinempc/GetNextPersonPoses.h>
 #include <cinempc/MPCIncomingState.h>
@@ -38,15 +41,12 @@
 #include <eigen3/Eigen/QR>
 #include <random>
 
-nav_msgs::Odometry curr_odom_;
-
 ros::Publisher intrinsics_publisher;
+ros::Publisher gimbal_rotation_publisher;
 ros::Publisher new_state_publisher;
-ros::Subscriber airsim_odom_sub_;
-ros::Subscriber home_geopoint_sub_;
-ros::ServiceServer local_position_goal_srvr_;
-ros::ServiceServer local_position_goal_override_srvr_;
-ros::ServiceServer gps_goal_srvr_;
-ros::ServiceServer gps_goal_override_srvr_;
+
+ros::ServiceClient service_move_on_path;
 
 ros::Timer cinempc_calculate_new_states_timer_;
+
+geometry_msgs::Pose drone_pose;

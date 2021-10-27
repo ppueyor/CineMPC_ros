@@ -2,6 +2,7 @@
 #define MPC_H
 
 #include <airsim_ros_pkgs/DroneAndCameraState.h>
+#include <airsim_ros_pkgs/Takeoff.h>
 #include <cinempc/MPCIncomingState.h>
 #include <cinempc/MPCResult.h>
 #include <cinempc/TargetStates.h>
