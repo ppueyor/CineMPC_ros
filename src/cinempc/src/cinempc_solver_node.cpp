@@ -83,20 +83,6 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order)
   return result;
 }
 
-// Function to calculate distance between two points (focus distance)
-AD<double> calculateDistanceToPoint(AD<double> x1, AD<double> y1, AD<double> x2, AD<double> y2)
-{
-  // Calculating distance
-  return (sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) * 1.0));
-}
-// Function to calculate distance between two points (focus distance)
-AD<double> calculateDistanceTo3DPoint(AD<double> x1, AD<double> y1, AD<double> z1, AD<double> x2, AD<double> y2,
-									  AD<double> z2)
-{
-  // Calculating distance
-  return (sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) + pow(z2 - z1, 2)));
-}
-
 // mms
 AD<double> hyperFocalDistance(AD<double> focal_length, AD<double> aperture)
 {
@@ -140,57 +126,6 @@ AD<double> farAcceptableDistance(AD<double> focus_distance, AD<double> hyperfoca
   return (div);
 }
 
-RPY_AD RMatrixtoRPY(Eigen::Matrix<AD<double>, 3, 3> R)
-{
-  AD<double> roll = asin(R(2, 1));
-  AD<double> pitch = -atan2(R(2, 0), R(2, 2));
-  AD<double> yaw = -atan2(R(0, 1), R(1, 1));
-
-  RPY_AD RPY(roll, pitch, yaw);
-  RPY.roll = roll;
-  RPY.pitch = pitch;
-  RPY.yaw = yaw;
-
-  return RPY;
-}
-
-Eigen::Matrix<AD<double>, 3, 3> RPYtoRMatrix(AD<double> roll, AD<double> pitch, AD<double> yaw)
-{
-  // Eigen::Quaterniond quat = VectorMath::toQuaternion(0,0,CppAD::Value(yaw)).Quaternion;
-  Eigen::AngleAxis<AD<double>> rollAngle(roll, Eigen::Matrix<AD<double>, 1, 3>::UnitX());
-  Eigen::AngleAxis<AD<double>> pitchAngle(pitch, Eigen::Matrix<AD<double>, 1, 3>::UnitY());
-  Eigen::AngleAxis<AD<double>> yawAngle(yaw, Eigen::Matrix<AD<double>, 1, 3>::UnitZ());
-
-  Eigen::Matrix<AD<double>, 3, 3> R;
-
-  Eigen::Quaternion<AD<double>> q = yawAngle * rollAngle * pitchAngle;
-
-  R = q.matrix();
-
-  return (R);
-}
-
-RPY quatToRPY(geometry_msgs::Quaternion q)
-{
-  double roll, pitch, yaw;
-  tf2::Quaternion quat_tf;
-  tf2::fromMsg(q, quat_tf);
-  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-  RPY rpy;
-  rpy.roll = roll;
-  rpy.pitch = pitch;
-  rpy.yaw = yaw;
-  return rpy;
-}
-
-Eigen::Matrix<AD<double>, 3, 3> quatToRMatrix(geometry_msgs::Quaternion q)
-{
-  double roll, pitch, yaw;
-  tf2::Quaternion quat_tf;
-  tf2::fromMsg(q, quat_tf);
-  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-  return RPYtoRMatrix(roll, pitch, yaw);
-}
 // from slides of AROB
 Eigen::Matrix<AD<double>, 3, 3> wedgeOperator(Eigen::Matrix<AD<double>, 3, 1> M)
 {
@@ -282,7 +217,7 @@ Pixel_MPC readPixel(AD<double> focal_length_mm, AD<double> relative_position_x_m
 
 void logRPY(Eigen::Matrix<AD<double>, 3, 3> R, string name)
 {
-  RPY_AD wRs2 = RMatrixtoRPY(R);
+  cinempc::RPY<AD<double>> wRs2 = cinempc::RMatrixtoRPY<AD<double>>(R);
 
   std::cout << name << std::endl
 			<< "--------- " << std::endl
@@ -316,10 +251,11 @@ public:
 		AD<double> relative_z_up_target = target_states.at(j).poses_up.at(t).position.z - (vars[z_start + t]);
 		AD<double> relative_z_down_target = target_states.at(j).poses_down.at(t).position.z - (vars[z_start + t]);
 
-		Eigen::Matrix<AD<double>, 3, 3> drone_R_target = quatToRMatrix(target_states.at(j).poses_up.at(t).orientation);
+		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
+			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).poses_up.at(t).orientation, false);
 
-		Eigen::Matrix<AD<double>, 3, 3> new_drone_R =
-			RPYtoRMatrix(vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
+		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPYtoRMatrix<AD<double>>(
+			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
 
 		// Cost_DoF
 		AD<double> hyperfocal_distance_mms = hyperFocalDistance(vars[focal_length_start + t], vars[aperture_start + t]);
@@ -369,26 +305,28 @@ public:
 		}
 
 		// Cost_P
-		distance_2D_target = calculateDistanceToPoint(0, 0, relative_x_target, relative_y_target);
+		distance_2D_target = cinempc::calculateDistanceTo2DPoint<AD<double>>(0, 0, relative_x_target, relative_y_target);
 		if (distance_2D_target < minimum_distance_2D_target)
 		{
 		  minimum_distance_2D_target = distance_2D_target;
 		  closest_target_index = j;
 		}
 
-		RPY_AD rot_plot;
-		RPY_AD rot_plot_d;
+		if (constraints.weights.w_d_targets.at(j) > 0)
+		{
+		  AD<double> cost_d_target = CppAD::pow((distance_2D_target - constraints.targets_d_star.at(j)), 2);
+		  Jp += constraints.weights.w_d_targets.at(j) * cost_d_target;
+		}
+
+		cinempc::RPY<AD<double>> rot_plot;
+		cinempc::RPY<AD<double>> rot_plot_d;
 		if (constraints.weights.w_R_targets.at(j) > 0)
 		{
-		  double roll, pitch, yaw;
-		  tf2::Quaternion quat_tf;
-		  tf2::fromMsg(constraints.targets_orientation_star.at(j), quat_tf);
-		  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-
-		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star = RPYtoRMatrix(roll, pitch, yaw);
+		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star =
+			  cinempc::quatToRMatrix<AD<double>>(constraints.targets_orientation_star.at(j), false);
 		  Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target = new_drone_R.transpose() * drone_R_target;
-		  rot_plot = RMatrixtoRPY(new_drone_R_target);
-		  rot_plot_d = RMatrixtoRPY(drone_R_star);
+		  rot_plot = cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target);
+		  rot_plot_d = cinempc::RMatrixtoRPY<AD<double>>(drone_R_star);
 		  if (t == 0)
 		  {
 			logRPY(drone_R_star, "drone_R_star");
@@ -539,9 +477,10 @@ public:
 	  AD<double> vel_y1 = vars[vel_y_start + t];
 	  AD<double> vel_z1 = vars[vel_z_start + t];
 
-	  fg[t] = calculateDistanceTo3DPoint(x1, y1, z1, target_states.at(closest_target_index).poses_up.at(t).position.x,
-										 target_states.at(closest_target_index).poses_up.at(t).position.y,
-										 target_states.at(closest_target_index).poses_up.at(t).position.z);
+	  fg[t] = cinempc::calculateDistanceTo3DPoint<AD<double>>(
+		  x1, y1, z1, target_states.at(closest_target_index).poses_up.at(t).position.x,
+		  target_states.at(closest_target_index).poses_up.at(t).position.y,
+		  target_states.at(closest_target_index).poses_up.at(t).position.z);
 
 	  // Setup the rest of the model constraints
 	  fg[MPC_N + x_start + t] = x1 - (x0 + vel_x0 * dt);
@@ -549,7 +488,7 @@ public:
 	  fg[MPC_N + z_start + t] = z1 - (z0 + vel_z0 * dt);
 
 	  // rotation dynamics
-	  Eigen::Matrix<AD<double>, 3, 3> R = RPYtoRMatrix(roll0, pitch0, yaw0);
+	  Eigen::Matrix<AD<double>, 3, 3> R = cinempc::RPYtoRMatrix<AD<double>>(roll0, pitch0, yaw0);
 
 	  Eigen::Matrix<AD<double>, 3, 3> R1;
 	  Eigen::Matrix<AD<double>, 3, 1> angularVelocityVector(vel_ang_x0 + 0.000001, vel_ang_y0 + 0.000001,
@@ -559,7 +498,7 @@ public:
 
 	  R1 = R * wedgeFromAngularV;
 
-	  RPY_AD RPYVector = RMatrixtoRPY(R1);
+	  cinempc::RPY<AD<double>> RPYVector = cinempc::RMatrixtoRPY<AD<double>>(R1);
 	  fg[MPC_N + roll_gimbal_start + t] = roll1 - (RPYVector.roll);
 	  fg[MPC_N + pitch_gimbal_start + t] = pitch1 - (RPYVector.pitch);
 	  fg[MPC_N + yaw_gimbal_start + t] = yaw1 - (RPYVector.yaw);
@@ -574,11 +513,6 @@ public:
 	}
   }
 };
-
-tf2::Quaternion get_tf2_quat(const msr::airlib::Quaternionr &airlib_quat)
-{
-  return tf2::Quaternion(airlib_quat.x(), airlib_quat.y(), airlib_quat.z(), airlib_quat.w());
-}
 
 void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 {
@@ -619,15 +553,15 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   vars[y_start] = msg->drone_state.drone_pose.position.y;
   vars[z_start] = msg->drone_state.drone_pose.position.z;
 
-  RPY rpy = quatToRPY(msg->drone_state.drone_pose.orientation);
+  cinempc::RPY<double> rpy = cinempc::quatToRPY<double>(msg->drone_state.drone_pose.orientation);
 
   vars[roll_gimbal_start] = rpy.roll;
   vars[pitch_gimbal_start] = rpy.pitch;
   vars[yaw_gimbal_start] = rpy.yaw;
 
-  vars[focus_distance_start] = msg->drone_state.instrinsics.focus_distance;
-  vars[focal_length_start] = msg->drone_state.instrinsics.focal_length;
-  vars[aperture_start] = msg->drone_state.instrinsics.aperture;
+  vars[focus_distance_start] = msg->drone_state.intrinsics.focus_distance;
+  vars[focal_length_start] = msg->drone_state.intrinsics.focal_length;
+  vars[aperture_start] = msg->drone_state.intrinsics.aperture;
 
   vars[vel_x_start] = msg->drone_state.velocity.x;
   vars[vel_y_start] = msg->drone_state.velocity.y;
@@ -821,9 +755,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   constraints_lowerbound[pitch_gimbal_start + MPC_N - 1] = rpy.pitch;
   constraints_lowerbound[yaw_gimbal_start + MPC_N - 1] = rpy.yaw;
 
-  constraints_lowerbound[focus_distance_start + MPC_N - 1] = msg->drone_state.instrinsics.focus_distance;
-  constraints_lowerbound[focal_length_start + MPC_N - 1] = msg->drone_state.instrinsics.focal_length;
-  constraints_lowerbound[aperture_start + MPC_N - 1] = msg->drone_state.instrinsics.aperture;
+  constraints_lowerbound[focus_distance_start + MPC_N - 1] = msg->drone_state.intrinsics.focus_distance;
+  constraints_lowerbound[focal_length_start + MPC_N - 1] = msg->drone_state.intrinsics.focal_length;
+  constraints_lowerbound[aperture_start + MPC_N - 1] = msg->drone_state.intrinsics.aperture;
 
   constraints_lowerbound[vel_x_start + MPC_N - 1] = msg->drone_state.velocity.x;
   constraints_lowerbound[vel_y_start + MPC_N - 1] = msg->drone_state.velocity.y;
@@ -837,9 +771,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   constraints_upperbound[pitch_gimbal_start + MPC_N - 1] = rpy.pitch;
   constraints_upperbound[yaw_gimbal_start + MPC_N - 1] = rpy.yaw;
 
-  constraints_upperbound[focus_distance_start + MPC_N - 1] = msg->drone_state.instrinsics.focus_distance;
-  constraints_upperbound[focal_length_start + MPC_N - 1] = msg->drone_state.instrinsics.focal_length;
-  constraints_upperbound[aperture_start + MPC_N - 1] = msg->drone_state.instrinsics.aperture;
+  constraints_upperbound[focus_distance_start + MPC_N - 1] = msg->drone_state.intrinsics.focus_distance;
+  constraints_upperbound[focal_length_start + MPC_N - 1] = msg->drone_state.intrinsics.focal_length;
+  constraints_upperbound[aperture_start + MPC_N - 1] = msg->drone_state.intrinsics.aperture;
 
   constraints_upperbound[vel_x_start + MPC_N - 1] = msg->drone_state.velocity.x;
   constraints_upperbound[vel_y_start + MPC_N - 1] = msg->drone_state.velocity.y;
@@ -890,7 +824,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	AD<double> vel_ang_z = solution.x[vel_ang_z_start];
 	for (int i = 0; i < MPC_N; i++)
 	{
-	  airsim_ros_pkgs::DroneAndCameraState state;
+	  cinempc::DroneAndCameraState state;
 	  state.drone_pose.position.x = solution.x[x_start + i];
 	  state.drone_pose.position.y = solution.x[y_start + i];
 	  state.drone_pose.position.z = solution.x[z_start + i];
@@ -904,9 +838,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 
 	  state.drone_pose.orientation = quat_msg;
 
-	  state.instrinsics.focus_distance = solution.x[focus_distance_start + i];
-	  state.instrinsics.focal_length = solution.x[focal_length_start + i];
-	  state.instrinsics.aperture = solution.x[aperture_start + i];
+	  state.intrinsics.focus_distance = solution.x[focus_distance_start + i];
+	  state.intrinsics.focal_length = solution.x[focal_length_start + i];
+	  state.intrinsics.aperture = solution.x[aperture_start + i];
 
 	  state.velocity.x = solution.x[vel_x_start + i];
 	  state.velocity.y = solution.x[vel_y_start + i];

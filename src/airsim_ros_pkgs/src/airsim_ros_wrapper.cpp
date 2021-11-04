@@ -794,7 +794,7 @@ bool AirsimROSWrapper::move_on_path_srv_cb(airsim_ros_pkgs::MoveOnPath::Request&
   }
   static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
       ->moveOnPathAsync(path, request.vel, request.timeout, DrivetrainType::MaxDegreeOfFreedom,
-                        YawMode(false, request.rads_yaw), -1, 1, vehicle_name);
+                        YawMode(false, 180 * request.rads_yaw / M_PI), -1, 1, vehicle_name);
 
   return true;
 }

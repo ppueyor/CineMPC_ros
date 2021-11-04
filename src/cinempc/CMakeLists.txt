@@ -42,6 +42,8 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
   FILES
   MPCIncomingState.msg
+  DroneAndCameraState.msg
+  PerceptionMsg.msg
   MPCResult.msg
   TargetStates.msg
   Constraints.msg
@@ -57,6 +59,7 @@ generate_messages(
   DEPENDENCIES
   std_msgs 
   geometry_msgs
+  sensor_msgs
   geographic_msgs
   airsim_ros_pkgs
 )
@@ -79,9 +82,9 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(move_person_node src/move_person_node.cpp)
-add_dependencies(move_person_node ${catkin_EXPORTED_TARGETS})
-target_link_libraries(move_person_node airsim_ros   ${catkin_LIBRARIES})
+add_executable(scene_node src/scene_node.cpp)
+add_dependencies(scene_node ${catkin_EXPORTED_TARGETS})
+target_link_libraries(scene_node airsim_ros   ${catkin_LIBRARIES})
 
 add_executable(change_sequence_node src/change_sequence_node.cpp)
 add_dependencies(change_sequence_node ${catkin_EXPORTED_TARGETS})
@@ -91,13 +94,17 @@ add_executable(cinempc_solver_node src/cinempc_solver_node.cpp)
 add_dependencies(cinempc_solver_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_solver_node ipopt ${catkin_LIBRARIES} )
 
+add_executable(cinempc_perception_node src/cinempc_perception_node.cpp) 
+add_dependencies(cinempc_perception_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_perception_node ipopt darkhelp darknet ${catkin_LIBRARIES} )
+
 add_executable(cinempc_main_node src/cinempc_main_node.cpp src/SimpleKalmanFilter.cpp) 
 add_dependencies(cinempc_main_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_main_node ${catkin_LIBRARIES} )
 
 install(TARGETS
     #list of nodes
-    move_person_node
+    scene_node
     cinempc_solver_node
     cinempc_main_node
     change_sequence_node

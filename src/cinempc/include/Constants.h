@@ -45,7 +45,7 @@ const double desired_relative_yaw = PI;
 const double desired_relative_pitch = 2 * PI / 6;
 
 const int MPC_N = 5;
-const float dt = 0.3;  // sample period MPC
+const float dt = 0.5;  // sample period MPC
 
 const double min_value = -99999999, max_value = 99999999;
 
@@ -75,73 +75,6 @@ const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;
 
 const double circle_confusion = 0.03;  //(mm)
-
-struct Pixel
-{
-  double x;
-  double y;
-  Pixel(double xc, double yc) : x(xc), y(yc)
-  {
-  }
-};
-
-struct RPY
-{
-  double roll = 0;
-  double pitch = 0;
-  double yaw = 0;
-
-  RPY(){};
-  RPY(double rollc, double pitchc, double yawc) : roll(rollc), pitch(pitchc), yaw(yawc)
-  {
-  }
-};
-
-struct DoF_star
-{
-  double dn;
-  double df;
-};
-
-struct Img_star
-{
-  Pixel img_pos;
-};
-
-struct P_star_weights
-{
-  double d;
-  double R;  // RPY
-};
-
-struct P_star
-{
-  double d;
-  RPY R;  // yaw for now
-};
-struct Weights
-{
-  double w_dn;
-  double w_df;
-  Pixel w_im_boy_up;
-  Pixel w_im_boy_down;
-  Pixel w_im_girl_up;
-  Pixel w_im_girl_down;
-  P_star_weights w_p_boy;
-  P_star_weights w_p_girl;
-};
-
-struct Constraints
-{
-  DoF_star doF_star;
-  Img_star im_pos_boy_up;
-  Img_star im_pos_boy_down;
-  Img_star im_pos_girl_up;
-  Img_star im_pos_girl_down;
-  P_star p_boy;
-  P_star p_girl;
-  Weights weights;
-};
 
 // Definition of sequences
 const int start_sequence_1 = 0;

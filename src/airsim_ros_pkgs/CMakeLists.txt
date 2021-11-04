@@ -50,7 +50,6 @@ add_message_files(
   GPSYaw.msg
   VelCmd.msg
   IntrinsicsCamera.msg
-  DroneAndCameraState.msg
   VelCmdGroup.msg
   CarControls.msg
   CarState.msg
