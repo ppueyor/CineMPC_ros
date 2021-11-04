@@ -520,6 +520,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   srv.request.positions = pathMPC;
 
   service_move_on_path.call(srv);
+  
 }
 
 airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float focus_distance_in, float aperture_in)
@@ -538,7 +539,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
   msg.drone_state.drone_pose.position.y = 0;  // drone_pose.position.y;
   msg.drone_state.drone_pose.position.z = 0;  // drone_pose.position.z;
 
-  geometry_msgs::Quaternion q = cinempc::RPYToQuat(0, 0, 0);
+  geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, 0);
   msg.drone_state.drone_pose.orientation = q;  // drone_pose.orientation;
 
   msg.floor_pos = -drone_pose.position.z;
