@@ -1,0 +1,5 @@
+int8 sequence
+cinempc/TargetStates[] targets
+geometry_msgs/Pose drone_pose
+---
+cinempc/Constraints contraints

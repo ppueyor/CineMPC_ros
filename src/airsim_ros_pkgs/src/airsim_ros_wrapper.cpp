@@ -222,20 +222,6 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
 
     vehicle_ros->intrinsics_pub_vec.push_back(camera_publisher);
 
-    IntrinsicsSubscriber camera_subscriber;
-    camera_subscriber.camera_name = "";
-    camera_subscriber.subscriber = nh_private_.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
-        curr_vehicle_name + "/" + "" + "/set_intrinsics", 1,
-        boost::bind(&AirsimROSWrapper::set_intrinsics_cb, this, _1, curr_vehicle_name, ""));
-    vehicle_ros->intrinsics_sub_vec.push_back(camera_subscriber);
-
-    vehicle_ros->enable_manual_focus_srv_vec.push_back(
-        nh_private_.advertiseService<airsim_ros_pkgs::EnableManualFocus::Request,
-                                     airsim_ros_pkgs::EnableManualFocus::Response>(
-            curr_vehicle_name + "/" + "" + "/" + "enable_manual_focus",
-            boost::bind(&AirsimROSWrapper::enable_manual_focus_srv_cb, this, _1, _2, curr_vehicle_name, "")));
-
-    // iterate over camera map std::map<std::string, CameraSetting> .cameras;
     for (auto& curr_camera_elem : vehicle_setting->cameras)
     {
       auto& camera_setting = curr_camera_elem.second;
@@ -251,13 +237,13 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
       IntrinsicsPublisher camera_publisher;
       camera_publisher.camera_name = curr_camera_name;
       camera_publisher.publisher = nh_private_.advertise<airsim_ros_pkgs::IntrinsicsCamera>(
-          curr_vehicle_name + "/" + curr_camera_name + "/intrinsics", 10);
+          curr_vehicle_name + "/" + curr_camera_name + "/get_intrinsics", 10);
       vehicle_ros->intrinsics_pub_vec.push_back(camera_publisher);
 
       IntrinsicsSubscriber camera_subscriber;
-      camera_subscriber.camera_name = "";
+      camera_subscriber.camera_name = curr_camera_name;
       camera_subscriber.subscriber = nh_private_.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
-          curr_vehicle_name + "/" + curr_camera_name + "/intrinsics", 1,
+          curr_vehicle_name + "/" + curr_camera_name + "/set_intrinsics", 1,
           boost::bind(&AirsimROSWrapper::set_intrinsics_cb, this, _1, curr_vehicle_name, curr_camera_name));
       vehicle_ros->intrinsics_sub_vec.push_back(camera_subscriber);
 

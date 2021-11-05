@@ -6,6 +6,10 @@ using namespace std::chrono;
 
 // Current position of drone
 std::vector<geometry_msgs::Pose> targets_poses;
+string errors;
+
+geometry_msgs::Pose target1_pose;
+
 float focal_length = 35, focus_distance = 10000, aperture = 20;
 
 int index_splines = 0;
@@ -15,6 +19,10 @@ int change_sequence_index = 0;
 double steps_each_dt = 20;
 double interval = dt / steps_each_dt;
 double freq_loop = 1 / interval;
+std::stringstream logErrorFileName;
+std::ofstream errorFile;
+
+cinempc::PerceptionMsg perception_msg;
 
 float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
@@ -37,6 +45,12 @@ void myPoseMsgToTF(const geometry_msgs::Pose& msg, tf2::Transform& bt)
                       tf2::Vector3(msg.position.x, msg.position.y, msg.position.z));
 }
 
+void initializePerceptionMsg()
+{
+  perception_msg.depth = sensor_msgs::Image();
+  perception_msg.rgb = sensor_msgs::Image();
+}
+
 void changeSeqCallback(const std_msgs::Float32::ConstPtr& msg)
 {
   sequence = msg->data;
@@ -56,323 +70,6 @@ double generateNoise(double mean, double st_dev)
   {
     return 0;
   }
-}
-
-cinempc::Constraints getConstraints(int sequence, std::vector<cinempc::TargetStates> targets,
-                                    geometry_msgs::Pose drone_pose)
-{
-  cinempc::Constraints c;
-
-  Eigen::Matrix<double, 3, 3> wRboy = cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw);
-  Eigen::Matrix<double, 3, 3> wRw = cinempc::RPYtoRMatrix<double>(0, 0, PI);
-  for (int i = 0; i < targets.size(); i++)
-  {
-    geometry_msgs::Point p;
-    c.targets_im_up_star.push_back(p);
-    c.targets_im_down_star.push_back(p);
-    c.targets_d_star.push_back(0);
-    geometry_msgs::Quaternion q;
-    c.targets_orientation_star.push_back(q);
-    c.weights.w_R_targets.push_back(0);
-    c.weights.w_img_targets.push_back(p);
-    c.weights.w_d_targets.push_back(0);
-  }
-
-  sequence = 1;
-  if (sequence == 1)
-  {
-    // starting boy. From front preseting boy focused and mid-body
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(0).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) -
-                1;
-    c.weights.w_dn = 10 * 2;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(0).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) +
-                4;
-    c.weights.w_df = 10 * 1;
-
-    c.targets_im_up_star.at(0).x = image_x_center;
-    c.weights.w_img_targets.at(0).x = 10;
-    ;                                                 // 10;                      // 1;                       // 1 * 1;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 10;             // 10;                      // 1;                       // 1 * 1;
-    c.targets_im_down_star.at(0).y = image_y_third_down + 60;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;  // 10;                      // 1;                       // 1 * 1;
-
-    c.targets_im_up_star.at(1).x = -1;
-    c.weights.w_img_targets.at(1).x = 0;
-    c.targets_im_up_star.at(1).y = -1;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(1).y = 0;
-    c.targets_im_down_star.at(1).y = -1;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(1).z = 0;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1000;  // 1 * 1;
-    cinempc::RPY<double> relative =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 3;
-
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_d_targets.at(1) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 2 || sequence == 2.5)
-  {
-    // Rotatind around boy. From right (90º) presenting boy focused and full-body. Boy centered
-    float weight_y = 1;
-    if (change_sequence_index <= 20)
-    {
-      weight_y = 0.05 * change_sequence_index;
-      change_sequence_index++;
-      cout << "-------------------------------------" << endl
-           << "------    we:    " << weight_y << "       ------" << endl
-           << "-------------------------------------" << endl;
-    }
-    // starting boy. From front preseting boy focused and mid-body
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(0).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) -
-                10;
-    c.weights.w_dn = 10 * 2;
-    c.df_star = 0;
-    c.weights.w_df = 10 * 1;
-
-    c.targets_im_up_star.at(0).x = image_x_center;
-    c.weights.w_img_targets.at(0).x = 1 * 2;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 1 * 2.5;
-    c.targets_im_down_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = weight_y;
-    c.targets_im_up_star.at(1).x = 0;
-    c.weights.w_img_targets.at(1).x = 0;
-    c.targets_im_up_star.at(1).y = 0;
-    c.weights.w_img_targets.at(1).y = 0;
-    c.targets_im_down_star.at(1).y = -1;
-    c.weights.w_img_targets.at(1).z = 0;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 100 * 1;
-    cinempc::RPY<double> relative =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.3, subject_yaw - PI / 2).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 2;
-
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 3)
-  {
-    // Zoom in boy. From behind (180º) presenting boy focused and mid-body. Boy centered
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(0).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) -
-                2.5;
-    c.weights.w_dn = 10 * 5;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(0).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) +
-                1;
-    c.weights.w_df = 10 * 5;
-
-    c.targets_im_up_star.at(0).x = image_x_center;
-    c.weights.w_img_targets.at(0).x = 1 * 1;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 1 * 2;
-    c.targets_im_down_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 1 * 1;
-    c.targets_im_up_star.at(1).x = 0;
-    c.weights.w_img_targets.at(1).x = 0;
-    c.targets_im_up_star.at(1).y = -1;
-    c.weights.w_img_targets.at(1).y = 0;
-    c.targets_im_down_star.at(1).y = -1;
-    c.weights.w_img_targets.at(1).z = 0;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1 * 2;
-    cinempc::RPY<double> relative =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 1;
-
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 4)
-  {
-    // Presenting girl. From behind (180º) presenting boy and girl focused and full-body of boy. Boy and girl in thirds
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(0).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) -
-                5;
-    c.weights.w_dn = 10 * 1;
-    c.df_star = 0;
-    c.weights.w_df = 0;
-
-    c.targets_im_up_star.at(0).x = image_x_third_left;
-    c.weights.w_img_targets.at(0).x = 1 * 1;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 1 * 2;
-    c.targets_im_down_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 1 * 1;
-    c.targets_im_up_star.at(1).x = image_x_third_right;
-    c.weights.w_img_targets.at(1).x = 1;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1 * 2;
-    c.targets_im_down_star.at(1).y = -1;
-    c.weights.w_img_targets.at(1).z = 0;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1 * 3;
-    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
-        cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2 - 0.15).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 0.5;
-
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 5)
-  {
-    // Highligh girl. From behind (180º) presenting girl focused and boy not focused and full-body of girl. Boy and girl
-    // in thirds
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(1).poses_up.at(0).position.x,
-                                                                targets.at(1).poses_up.at(0).position.y, 0, 0)) -
-                1;
-    c.weights.w_dn = 10 * 1;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(1).poses_up.at(0).position.x,
-                                                                targets.at(0).poses_up.at(0).position.y, 0, 0)) +
-                20;
-    c.weights.w_df = 5;
-
-    c.targets_im_up_star.at(0).x = image_x_third_left;
-    c.weights.w_img_targets.at(0).x = 1 * 1;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 1 * 1;
-    c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;
-
-    c.targets_im_up_star.at(1).x = image_x_third_right;
-    c.weights.w_img_targets.at(1).x = 1 * 2;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1 * 2;
-    c.targets_im_down_star.at(1).y = image_y_third_down;
-    c.weights.w_img_targets.at(1).z = 1;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1 * 2;
-    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
-        cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2 - 0.17).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 0.5;
-
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 6)
-  {
-    // Focus just in girl. From front of girl (180º) focus on girl focused  focused and mid-body of girl centered. Girl
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(1).poses_up.at(0).position.x,
-                                                                targets.at(1).poses_up.at(0).position.y, 0, 0)) -
-                1;
-    c.weights.w_dn = 10 * 1;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(1).poses_up.at(0).position.x,
-                                                                targets.at(1).poses_up.at(0).position.y, 0, 0)) +
-                35;
-    c.weights.w_df = 10;
-
-    c.targets_im_up_star.at(0).x = image_x_third_left;
-    c.weights.w_img_targets.at(0).x = 0;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 0;
-    c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;
-
-    c.targets_im_up_star.at(1).x = image_x_center;
-    c.weights.w_img_targets.at(1).x = 1 * 2;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1 * 2;
-    c.targets_im_down_star.at(1).y = image_y_third_down;
-    c.weights.w_img_targets.at(1).z = 1;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 0;
-    // c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 0;
-
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    cinempc::RPY<double> relative_girl =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.1, PI - PI - PI / 4).transpose() * wRw);
-    tf2::Quaternion quaternion_tf2_girl;
-    quaternion_tf2_girl.setRPY(relative_girl.roll, relative_girl.pitch, relative_girl.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2_girl);
-    c.targets_orientation_star.at(1) = quaternion;
-    c.weights.w_R_targets.at(1) = 10000;
-  }
-  else if (sequence == 7)
-  {
-    // Focus just in girl. From front of girl (180º) focus on girl focused  focused and mid-body of girl centered. Girl
-    // centered Highligh girl. From behind (180º) presenting girl focused and boy not focused and full-body of girl. Boy
-
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(targets.at(1).poses_up.at(0).position.x,
-                                                                targets.at(1).poses_up.at(0).position.y, 0, 0)) -
-                5;
-    c.weights.w_dn = 1;
-    c.df_star = 0;
-    c.weights.w_df = 0;
-
-    c.targets_im_up_star.at(0).x = 0;
-    c.weights.w_img_targets.at(0).x = 0;
-    c.targets_im_up_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 0;
-    c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;
-
-    c.targets_im_up_star.at(1).x = image_x_center;
-    c.weights.w_img_targets.at(1).x = 1 * 2;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1;
-    c.targets_im_down_star.at(1).y = image_y_third_down;
-    c.weights.w_img_targets.at(1).z = 1;
-
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 0;
-    // c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 0;
-
-    c.targets_d_star.at(1) = 5;
-    c.weights.w_R_targets.at(0) = 1;
-
-    cinempc::RPY<double> relative_girl =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.3, PI - PI - 3 * PI / 4).transpose() * wRw);
-    tf2::Quaternion quaternion_tf2_girl;
-    quaternion_tf2_girl.setRPY(relative_girl.roll, relative_girl.pitch, relative_girl.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2_girl);
-    c.targets_orientation_star.at(1) = quaternion;
-    c.weights.w_R_targets.at(1) = 10000;
-  }
-  return c;
 }
 
 void readDroneStateCallback(const nav_msgs::Odometry::ConstPtr& msg)
@@ -407,6 +104,25 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   targets_poses.at(i).position.z = target_z_noise;
 
   targets_poses.at(i).orientation = msg->pose.orientation;
+
+  target1_pose = cinempc::calculate_relative_pose_drone_person<double>(targets_poses.at(i), drone_pose);
+}
+
+void readTargetStatePerceptionCallback(const geometry_msgs::Pose& msg)
+{
+  float target_x_perception = msg.position.x;  // + generateNoise(0, 0.04);
+  float target_y_perception = msg.position.y;  // + generateNoise(0, 0.04);
+  float target_z_perception = msg.position.z;  // + generateNoise(0, 0.04);
+  // std::cout << "target_x_perception: " << target_x_perception << "  target_y_perception: " << target_y_perception
+  //<< "  target_z_perception: " << target_z_perception << std::endl;
+
+  float error_x = abs(target_x_perception - (targets_poses.at(0).position.x - drone_pose.position.x));
+  float error_y = abs(target_y_perception - (targets_poses.at(0).position.y - drone_pose.position.y));
+  float error_z = abs(target_z_perception - (targets_poses.at(0).position.z - drone_pose.position.z));
+
+  std::cout << "error_x: " << error_x << "  error_y: " << error_y << "  error_z: " << error_z << std::endl;
+
+  errorFile << error_x << "," << error_y << "," << error_z << "\n";
 }
 
 void initializeTargets()
@@ -463,7 +179,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     geometry_msgs::Point path_point(world_T_result.position);
     pathMPC.push_back(path_point);
 
-    std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
+    // std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
 
     if (index_mpc == 1)
     {
@@ -483,11 +199,11 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     index_mpc++;
   }
 
-  std::cout << "NEW POSE:" << cinempc::quatToRPY<double>(drone_pose.orientation).yaw << std::endl;
+  // std::cout << "NEW POSE:" << cinempc::quatToRPY<double>(drone_pose.orientation).yaw << std::endl;
 
   for (double focal_l : focal_length_vector)
   {
-    std::cout << "focal:" << focal_l << std::endl;
+    // std::cout << "focal:" << focal_l << std::endl;
   }
 
   for (double focal_l : focus_distance_vector)
@@ -501,7 +217,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   }
   for (double focal_l : yaw_vector)
   {
-    std::cout << "yaw:" << focal_l << std::endl;
+    // std::cout << "yaw:" << focal_l << std::endl;
   }
   focal_length_spline.set_points(times_vector, focal_length_vector);
   focus_distance_spline.set_points(times_vector, focus_distance_vector);
@@ -520,7 +236,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   srv.request.positions = pathMPC;
 
   service_move_on_path.call(srv);
-  
 }
 
 airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float focus_distance_in, float aperture_in)
@@ -590,10 +305,45 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       targets++;
       if (targets == targets_names.size())
       {
-        msg.constraints = getConstraints(sequence, msg.targets, drone_pose_next_state);
-        new_state_publisher.publish(msg);
+        ros::ServiceClient service_get_user_constraints = n.serviceClient<cinempc::GetUserConstraints>("/cinempc/"
+                                                                                                       "user_node/"
+                                                                                                       "get_"
+                                                                                                       "constraints");
+        cinempc::GetUserConstraints srv;
+        srv.request.targets = msg.targets;
+        srv.request.sequence = 1;
+
+        if (service_get_user_constraints.call(srv))
+        {
+          msg.constraints = srv.response.contraints;
+          new_state_publisher.publish(msg);
+        }
       }
     }
+  }
+}
+
+void rgbReceivedCallback(const sensor_msgs::Image& msg)
+{
+  perception_msg.rgb = msg;
+  if (perception_msg.depth.height != 0)
+  {
+    perception_msg.drone_state.drone_pose = drone_pose;
+    perception_msg.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
+    perception_publisher.publish(perception_msg);
+    initializePerceptionMsg();
+  }
+}
+
+void depthReceivedCallback(const sensor_msgs::Image& msg)
+{
+  perception_msg.depth = msg;
+  if (perception_msg.rgb.height != 0)
+  {
+    perception_msg.drone_state.drone_pose = drone_pose;
+    perception_msg.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
+    perception_publisher.publish(perception_msg);
+    initializePerceptionMsg();
   }
 }
 
@@ -602,6 +352,17 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "cinempc_main");
 
   initializeTargets();
+
+  auto const now = std::chrono::system_clock::now();
+  auto const in_time_t = std::chrono::system_clock::to_time_t(now);
+  logErrorFileName << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/logs/error_pos_"
+                   << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << ".csv";
+  errorFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
+  errorFile << "Error x"
+            << ","
+            << "Error y"
+            << ","
+            << "Error z";
 
   ros::NodeHandle n;
 
@@ -619,6 +380,9 @@ int main(int argc, char** argv)
 
   ros::Subscriber mpc_result_n_steps_sub = n.subscribe("cinempc/next_n_states", 1000, mpcResultCallback);
 
+  ros::Subscriber new_rgb_received = n.subscribe("/airsim_node/drone_1/Scene", 1000, rgbReceivedCallback);
+  ros::Subscriber new_depth_received = n.subscribe("/airsim_node/drone_1/DepthVis", 1000, depthReceivedCallback);
+
   std::vector<ros::Subscriber> targets_states_subscribers = {};
   for (int i = 0; i < targets_names.size(); i++)
   {
@@ -626,9 +390,14 @@ int main(int argc, char** argv)
         "airsim_node/" + targets_names.at(i) + "/get_pose", 1000, boost::bind(&readTargetStateCallback, _1, i)));
   }
 
-  intrinsics_publisher = n.advertise<airsim_ros_pkgs::IntrinsicsCamera>("/airsim_node/drone_1/set_intrinsics", 10);
+  ros::Subscriber target_state_perception_subscriber =
+      n.subscribe("/cinempc/target_pose_perception", 1000, readTargetStatePerceptionCallback);
 
-  intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance, aperture));
+  fpv_intrinsics_publisher = n.advertise<airsim_ros_pkgs::IntrinsicsCamera>("/airsim_node/drone_1/set_intrinsics", 10);
+
+  perception_publisher = n.advertise<cinempc::PerceptionMsg>("/cinempc/perception", 10);
+
+  fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance, aperture));
 
   gimbal_rotation_publisher =
       n.advertise<airsim_ros_pkgs::GimbalAngleQuatCmd>("/airsim_node/gimbal_angle_quat_cmd", 10);
@@ -655,11 +424,7 @@ int main(int argc, char** argv)
       focus_distance = focus_distance_spline(interval * index_splines);
       aperture = aperture_spline(interval * index_splines);
 
-      airsim_ros_pkgs::IntrinsicsCamera intrinsics_msg;
-      intrinsics_msg.focal_length = focal_length;
-      intrinsics_msg.focus_distance = focus_distance * 100;
-      intrinsics_msg.aperture = aperture;
-      intrinsics_publisher.publish(intrinsics_msg);
+      fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
 
       double yaw_gimbal = yaw_spline(interval * index_splines);
       double pitch_gimbal = pitch_spline(interval * index_splines);

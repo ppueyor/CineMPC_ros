@@ -4,8 +4,10 @@
 #include <airsim_ros_pkgs/Takeoff.h>
 #include <cinempc/Constraints.h>
 #include <cinempc/GetNextPersonPoses.h>
+#include <cinempc/GetUserConstraints.h>
 #include <cinempc/MPCIncomingState.h>
 #include <cinempc/MPCResult.h>
+#include <cinempc/PerceptionMsg.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Float32.h>
 #include <stdio.h>
@@ -41,7 +43,8 @@
 #include <eigen3/Eigen/QR>
 #include <random>
 
-ros::Publisher intrinsics_publisher;
+ros::Publisher fpv_intrinsics_publisher;
+ros::Publisher perception_publisher;
 ros::Publisher gimbal_rotation_publisher;
 ros::Publisher new_state_publisher;
 

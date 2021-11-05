@@ -4,22 +4,31 @@
 using namespace cv;
 using namespace std;
 
-Eigen::Matrix<double, 3, 3> quatToRMatrix(geometry_msgs::Quaternion q)
-{
-  // double roll, pitch, yaw;
-  // tf2::Quaternion quat_tf;
-  // tf2::fromMsg(q, quat_tf);
-  // Eigen::Matrix<double, 3, 3> mat_res;
-  // tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-
-  // return RPYtoRMatrix(roll, pitch, yaw);
-}
-
 void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 {
   int personsFound = 0;
-  Mat m_rgb = cv::imdecode(msg.rgb.data, -1);
-  DarkHelp::PredictionResults results = darkhelp.predict(m_rgb);
+  auto data = msg.rgb.data;
+  cv_bridge::CvImagePtr rgb_cv_ptr, depth_cv_ptr;
+  try
+  {
+    rgb_cv_ptr = cv_bridge::toCvCopy(msg.rgb, sensor_msgs::image_encodings::BGR8);
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+
+  try
+  {
+    depth_cv_ptr = cv_bridge::toCvCopy(msg.depth, sensor_msgs::image_encodings::TYPE_32FC1);
+  }
+  catch (cv_bridge::Exception& e)
+  {
+    ROS_ERROR("cv_bridge exception: %s", e.what());
+    return;
+  }
+  DarkHelp::PredictionResults results = darkhelp.predict(rgb_cv_ptr->image);
   DarkHelp::PredictionResult result;
   if (results.size() != 0)
   {
@@ -32,6 +41,11 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
       }
     }
   }
+  cv::Mat output = darkhelp.annotate();
+  int a = 0;
+  cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/b.jpg", rgb_cv_ptr->image);
+  cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/a.jpg", output);
+
   if (personsFound > 0)
   {
     Rect rect1 = result.rect;
@@ -40,14 +54,22 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
     float target_v_center = rect1.y + (rect1.height / 2);
 
     int pixel = (target_v_center * msg.rgb.width) + target_u;
-    float depth = msg.rgb.data[pixel];
 
-    geometry_msgs::Point point3D =
-        cinempc::readPositionImageToWorld<double>(msg.drone_state.intrinsics.focal_length, target_u, target_v, depth,
-                                                  msg.drone_state.drone_pose.orientation);  // return meters
-    float boy_x_cv = point3D.x;
-    float boy_y_cv = point3D.y;
-    float boy_z_cv = -point3D.z;
+    float depth_target = depth_cv_ptr->image.at<float>(target_v_center, target_u) * 100000;  // convert to mms
+
+    geometry_msgs::Point point3D = cinempc::readPositionImageToWorld<double>(
+        msg.drone_state.intrinsics.focal_length, target_u, target_v, depth_target,
+        msg.drone_state.drone_pose.orientation);  // return meters
+    float target_x_cv = point3D.x;
+    float target_y_cv = point3D.y;
+    float target_z_cv = -point3D.z;
+
+    geometry_msgs::Pose p;
+    p.position = point3D;
+
+    perception_result_publisher.publish(p);
+
+    // std::cout << "yaw1:" << target_x_cv << "u: " << target_y_cv << "v:" << target_z_cv << std::endl;
   }
 }
 
@@ -69,7 +91,8 @@ int main(int argc, char** argv)
 
   ros::NodeHandle n;
 
-  ros::Subscriber image_received_sub = n.subscribe("cinempc/perception", 1000, newImageReceivedCallback);
+  ros::Subscriber image_received_sub = n.subscribe("/cinempc/perception", 1000, newImageReceivedCallback);
+  perception_result_publisher = n.advertise<geometry_msgs::Pose>("/cinempc/target_pose_perception", 10);
 
   ros::spin();
 
