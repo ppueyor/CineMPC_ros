@@ -48,7 +48,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
     c.weights.w_img_targets.at(0).y = 10;             // 10;                      // 1;                       // 1 * 1;
     c.targets_im_down_star.at(0).y = image_y_third_down + 60;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;  // 10;                      // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).z = 10;                      // 1;                       // 1 * 1;
 
     c.targets_im_up_star.at(1).x = -1;
     c.weights.w_img_targets.at(1).x = 0;
@@ -160,169 +160,173 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     // c.p_girl.R = RPY(0, 0, 0);
     c.weights.w_R_targets.at(1) = 0;
   }
-  else if (sequence == 4)
-  {
-    // Presenting girl. From behind (180º) presenting boy and girl focused and full-body of boy. Boy and girl in thirds
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(0).poses_up.at(0).position.x,
-                                                                req.targets.at(0).poses_up.at(0).position.y, 0, 0)) -
-                5;
-    c.weights.w_dn = 10 * 1;
-    c.df_star = 0;
-    c.weights.w_df = 0;
+  // else if (sequence == 4)
+  // {
+  //   // Presenting girl. From behind (180º) presenting boy and girl focused and full-body of boy. Boy and girl in
+  //   thirds c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(0).poses_up.at(0).position.x,
+  //                                                               req.targets.at(0).poses_up.at(0).position.y, 0, 0)) -
+  //               5;
+  //   c.weights.w_dn = 10 * 1;
+  //   c.df_star = 0;
+  //   c.weights.w_df = 0;
 
-    c.targets_im_up_star.at(0).x = image_x_third_left;
-    c.weights.w_img_targets.at(0).x = 1 * 1;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 1 * 2;
-    c.targets_im_down_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 1 * 1;
-    c.targets_im_up_star.at(1).x = image_x_third_right;
-    c.weights.w_img_targets.at(1).x = 1;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1 * 2;
-    c.targets_im_down_star.at(1).y = -1;
-    c.weights.w_img_targets.at(1).z = 0;
+  //   c.targets_im_up_star.at(0).x = image_x_third_left;
+  //   c.weights.w_img_targets.at(0).x = 1 * 1;
+  //   c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).y = 1 * 2;
+  //   c.targets_im_down_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).z = 1 * 1;
+  //   c.targets_im_up_star.at(1).x = image_x_third_right;
+  //   c.weights.w_img_targets.at(1).x = 1;
+  //   c.targets_im_up_star.at(1).y = image_y_third_up;
+  //   c.weights.w_img_targets.at(1).y = 1 * 2;
+  //   c.targets_im_down_star.at(1).y = -1;
+  //   c.weights.w_img_targets.at(1).z = 0;
 
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1 * 3;
-    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
-        cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2 - 0.15).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 0.5;
+  //   c.targets_d_star.at(0) = 5;
+  //   c.weights.w_d_targets.at(0) = 1 * 3;
+  //   cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
+  //       cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2 - 0.15).transpose() * wRboy);
+  //   tf2::Quaternion quaternion_tf2;
+  //   quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
+  //   geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
+  //   c.targets_orientation_star.at(0) = quaternion;
+  //   c.weights.w_R_targets.at(0) = 5000 * 0.5;
 
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 5)
-  {
-    // Highligh girl. From behind (180º) presenting girl focused and boy not focused and full-body of girl. Boy and girl
-    // in thirds
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
-                                                                req.targets.at(1).poses_up.at(0).position.y, 0, 0)) -
-                1;
-    c.weights.w_dn = 10 * 1;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
-                                                                req.targets.at(0).poses_up.at(0).position.y, 0, 0)) +
-                20;
-    c.weights.w_df = 5;
+  //   c.targets_d_star.at(1) = -1;
+  //   c.weights.w_R_targets.at(0) = 0;
+  //   // c.p_girl.R = RPY(0, 0, 0);
+  //   c.weights.w_R_targets.at(1) = 0;
+  // }
+  // else if (sequence == 5)
+  // {
+  //   // Highligh girl. From behind (180º) presenting girl focused and boy not focused and full-body of girl. Boy and
+  //   girl
+  //   // in thirds
+  //   c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
+  //                                                               req.targets.at(1).poses_up.at(0).position.y, 0, 0)) -
+  //               1;
+  //   c.weights.w_dn = 10 * 1;
+  //   c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
+  //                                                               req.targets.at(0).poses_up.at(0).position.y, 0, 0)) +
+  //               20;
+  //   c.weights.w_df = 5;
 
-    c.targets_im_up_star.at(0).x = image_x_third_left;
-    c.weights.w_img_targets.at(0).x = 1 * 1;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 1 * 1;
-    c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;
+  //   c.targets_im_up_star.at(0).x = image_x_third_left;
+  //   c.weights.w_img_targets.at(0).x = 1 * 1;
+  //   c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).y = 1 * 1;
+  //   c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).z = 0;
 
-    c.targets_im_up_star.at(1).x = image_x_third_right;
-    c.weights.w_img_targets.at(1).x = 1 * 2;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1 * 2;
-    c.targets_im_down_star.at(1).y = image_y_third_down;
-    c.weights.w_img_targets.at(1).z = 1;
+  //   c.targets_im_up_star.at(1).x = image_x_third_right;
+  //   c.weights.w_img_targets.at(1).x = 1 * 2;
+  //   c.targets_im_up_star.at(1).y = image_y_third_up;
+  //   c.weights.w_img_targets.at(1).y = 1 * 2;
+  //   c.targets_im_down_star.at(1).y = image_y_third_down;
+  //   c.weights.w_img_targets.at(1).z = 1;
 
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1 * 2;
-    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
-        cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2 - 0.17).transpose() * wRboy);
-    tf2::Quaternion quaternion_tf2;
-    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
-    c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 0.5;
+  //   c.targets_d_star.at(0) = 5;
+  //   c.weights.w_d_targets.at(0) = 1 * 2;
+  //   cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
+  //       cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw - PI / 2 - 0.17).transpose() * wRboy);
+  //   tf2::Quaternion quaternion_tf2;
+  //   quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
+  //   geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
+  //   c.targets_orientation_star.at(0) = quaternion;
+  //   c.weights.w_R_targets.at(0) = 5000 * 0.5;
 
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    // c.p_girl.R = RPY(0, 0, 0);
-    c.weights.w_R_targets.at(1) = 0;
-  }
-  else if (sequence == 6)
-  {
-    // Focus just in girl. From front of girl (180º) focus on girl focused  focused and mid-body of girl centered. Girl
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
-                                                                req.targets.at(1).poses_up.at(0).position.y, 0, 0)) -
-                1;
-    c.weights.w_dn = 10 * 1;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
-                                                                req.targets.at(1).poses_up.at(0).position.y, 0, 0)) +
-                35;
-    c.weights.w_df = 10;
+  //   c.targets_d_star.at(1) = -1;
+  //   c.weights.w_R_targets.at(0) = 0;
+  //   // c.p_girl.R = RPY(0, 0, 0);
+  //   c.weights.w_R_targets.at(1) = 0;
+  // }
+  // else if (sequence == 6)
+  // {
+  //   // Focus just in girl. From front of girl (180º) focus on girl focused  focused and mid-body of girl centered.
+  //   Girl c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
+  //                                                               req.targets.at(1).poses_up.at(0).position.y, 0, 0)) -
+  //               1;
+  //   c.weights.w_dn = 10 * 1;
+  //   c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
+  //                                                               req.targets.at(1).poses_up.at(0).position.y, 0, 0)) +
+  //               35;
+  //   c.weights.w_df = 10;
 
-    c.targets_im_up_star.at(0).x = image_x_third_left;
-    c.weights.w_img_targets.at(0).x = 0;
-    c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 0;
-    c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;
+  //   c.targets_im_up_star.at(0).x = image_x_third_left;
+  //   c.weights.w_img_targets.at(0).x = 0;
+  //   c.targets_im_up_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).y = 0;
+  //   c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).z = 0;
 
-    c.targets_im_up_star.at(1).x = image_x_center;
-    c.weights.w_img_targets.at(1).x = 1 * 2;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1 * 2;
-    c.targets_im_down_star.at(1).y = image_y_third_down;
-    c.weights.w_img_targets.at(1).z = 1;
+  //   c.targets_im_up_star.at(1).x = image_x_center;
+  //   c.weights.w_img_targets.at(1).x = 1 * 2;
+  //   c.targets_im_up_star.at(1).y = image_y_third_up;
+  //   c.weights.w_img_targets.at(1).y = 1 * 2;
+  //   c.targets_im_down_star.at(1).y = image_y_third_down;
+  //   c.weights.w_img_targets.at(1).z = 1;
 
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 0;
-    // c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 0;
+  //   c.targets_d_star.at(0) = 5;
+  //   c.weights.w_d_targets.at(0) = 0;
+  //   // c.targets_orientation_star.at(0) = quaternion;
+  //   c.weights.w_R_targets.at(0) = 0;
 
-    c.targets_d_star.at(1) = -1;
-    c.weights.w_R_targets.at(0) = 0;
-    cinempc::RPY<double> relative_girl =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.1, PI - PI - PI / 4).transpose() * wRw);
-    tf2::Quaternion quaternion_tf2_girl;
-    quaternion_tf2_girl.setRPY(relative_girl.roll, relative_girl.pitch, relative_girl.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2_girl);
-    c.targets_orientation_star.at(1) = quaternion;
-    c.weights.w_R_targets.at(1) = 10000;
-  }
-  else if (sequence == 7)
-  {
-    // Focus just in girl. From front of girl (180º) focus on girl focused  focused and mid-body of girl centered. Girl
-    // centered Highligh girl. From behind (180º) presenting girl focused and boy not focused and full-body of girl. Boy
+  //   c.targets_d_star.at(1) = -1;
+  //   c.weights.w_R_targets.at(0) = 0;
+  //   cinempc::RPY<double> relative_girl =
+  //       cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.1, PI - PI - PI / 4).transpose() * wRw);
+  //   tf2::Quaternion quaternion_tf2_girl;
+  //   quaternion_tf2_girl.setRPY(relative_girl.roll, relative_girl.pitch, relative_girl.yaw);
+  //   geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2_girl);
+  //   c.targets_orientation_star.at(1) = quaternion;
+  //   c.weights.w_R_targets.at(1) = 10000;
+  // }
+  // else if (sequence == 7)
+  // {
+  //   // Focus just in girl. From front of girl (180º) focus on girl focused  focused and mid-body of girl centered.
+  //   Girl
+  //   // centered Highligh girl. From behind (180º) presenting girl focused and boy not focused and full-body of girl.
+  //   Boy
 
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
-                                                                req.targets.at(1).poses_up.at(0).position.y, 0, 0)) -
-                5;
-    c.weights.w_dn = 1;
-    c.df_star = 0;
-    c.weights.w_df = 0;
+  //   c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets.at(1).poses_up.at(0).position.x,
+  //                                                               req.targets.at(1).poses_up.at(0).position.y, 0, 0)) -
+  //               5;
+  //   c.weights.w_dn = 1;
+  //   c.df_star = 0;
+  //   c.weights.w_df = 0;
 
-    c.targets_im_up_star.at(0).x = 0;
-    c.weights.w_img_targets.at(0).x = 0;
-    c.targets_im_up_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y = 0;
-    c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).z = 0;
+  //   c.targets_im_up_star.at(0).x = 0;
+  //   c.weights.w_img_targets.at(0).x = 0;
+  //   c.targets_im_up_star.at(0).y = 0;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).y = 0;
+  //   c.targets_im_down_star.at(0).y = 0;  // mid-body (control with calculations of positions)
+  //   c.weights.w_img_targets.at(0).z = 0;
 
-    c.targets_im_up_star.at(1).x = image_x_center;
-    c.weights.w_img_targets.at(1).x = 1 * 2;
-    c.targets_im_up_star.at(1).y = image_y_third_up;
-    c.weights.w_img_targets.at(1).y = 1;
-    c.targets_im_down_star.at(1).y = image_y_third_down;
-    c.weights.w_img_targets.at(1).z = 1;
+  //   c.targets_im_up_star.at(1).x = image_x_center;
+  //   c.weights.w_img_targets.at(1).x = 1 * 2;
+  //   c.targets_im_up_star.at(1).y = image_y_third_up;
+  //   c.weights.w_img_targets.at(1).y = 1;
+  //   c.targets_im_down_star.at(1).y = image_y_third_down;
+  //   c.weights.w_img_targets.at(1).z = 1;
 
-    c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 0;
-    // c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 0;
+  //   c.targets_d_star.at(0) = 5;
+  //   c.weights.w_d_targets.at(0) = 0;
+  //   // c.targets_orientation_star.at(0) = quaternion;
+  //   c.weights.w_R_targets.at(0) = 0;
 
-    c.targets_d_star.at(1) = 5;
-    c.weights.w_R_targets.at(0) = 1;
+  //   c.targets_d_star.at(1) = 5;
+  //   c.weights.w_R_targets.at(0) = 1;
 
-    cinempc::RPY<double> relative_girl =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.3, PI - PI - 3 * PI / 4).transpose() * wRw);
-    tf2::Quaternion quaternion_tf2_girl;
-    quaternion_tf2_girl.setRPY(relative_girl.roll, relative_girl.pitch, relative_girl.yaw);
-    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2_girl);
-    c.targets_orientation_star.at(1) = quaternion;
-    c.weights.w_R_targets.at(1) = 10000;
-  }
+  //   cinempc::RPY<double> relative_girl =
+  //       cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, -0.3, PI - PI - 3 * PI / 4).transpose() *
+  //       wRw);
+  //   tf2::Quaternion quaternion_tf2_girl;
+  //   quaternion_tf2_girl.setRPY(relative_girl.roll, relative_girl.pitch, relative_girl.yaw);
+  //   geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2_girl);
+  //   c.targets_orientation_star.at(1) = quaternion;
+  //   c.weights.w_R_targets.at(1) = 10000;
+  // }
   res.contraints = c;
   return true;
 }

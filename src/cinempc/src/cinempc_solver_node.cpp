@@ -11,7 +11,7 @@ using namespace Eigen;
 using namespace std;
 // Set the timestep length and duration
 
-std::vector<cinempc::TargetStates> target_states;
+std::vector<cinempc::PersonStateMPC> target_states;
 
 struct Pixel_MPC
 {
@@ -209,7 +209,7 @@ Pixel_MPC readPixel(AD<double> focal_length_mm, AD<double> relative_position_x_m
   AD<double> yPixels_px = y_mm * picture_height_px / sensor_height_mm;
 
   Pixel_MPC p;
-  p.x = xPixels_px;
+  p.x = xPixels_px;   sensor_width_mm / 2 + ((focal_length_mm * vectorPixels(0)) / vectorPixels(2)) * picture_width_px / sensor_width_mm;
   p.y = yPixels_px;
 
   return (p);
@@ -305,7 +305,8 @@ public:
 		}
 
 		// Cost_P
-		distance_2D_target = cinempc::calculateDistanceTo2DPoint<AD<double>>(0, 0, relative_x_target, relative_y_target);
+		distance_2D_target =
+			cinempc::calculateDistanceTo2DPoint<AD<double>>(0, 0, relative_x_target, relative_y_target);
 		if (distance_2D_target < minimum_distance_2D_target)
 		{
 		  minimum_distance_2D_target = distance_2D_target;
@@ -385,7 +386,8 @@ public:
 					<< "--------- " << std::endl
 					<< "   relative_boy_mpc_x_var:  " << relative_x_target << std::endl
 					<< "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
-					<< "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl;
+					<< "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl
+					<< "   relative_boy_mpc_z_down_var:  " << relative_z_down_target << std::endl;
 
 		  std::cout << "IMAGE " << std::endl
 					<< "--------- " << std::endl

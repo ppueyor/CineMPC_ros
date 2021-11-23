@@ -31,8 +31,10 @@ bool getNStepsTargetService(cinempc::GetNextPersonPoses::Request &req, cinempc::
 	geometry_msgs::Pose current_pose;
 	if (i < MPC_N)
 	{
-	  current_pose.position.x = initial_pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * i;
-	  current_pose.position.y = initial_pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * i;
+	  current_pose.position.x =
+		  initial_pose.position.x;	// + move_target_x_per_step.at(index) * move_person_step_dt * i;
+	  current_pose.position.y =
+		  initial_pose.position.y;	// + move_target_y_per_step.at(index) * move_person_step_dt * i;
 	  current_pose.position.z = initial_pose.position.z;
 	}
 	else
@@ -71,18 +73,16 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "move_person_node");
   ros::NodeHandle n;
 
-  std::vector<std::string> targets = { "Person1", "Person2" };
-
   boost::shared_ptr<geometry_msgs::PoseStamped const> initial_state_ptr =
 	  ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/Person1/get_pose");
   initial_state = *initial_state_ptr;
 
   std::vector<ros::ServiceServer> mpc_n_target_steps_service;
-  for (int i = 0; i < targets.size(); i++)
+  for (int i = 0; i < targets_names.size(); i++)
   {
 	mpc_n_target_steps_service.push_back(
 		n.advertiseService<cinempc::GetNextPersonPoses::Request, cinempc::GetNextPersonPoses::Response>(
-			"cinempc/" + targets.at(i) + "/get_next_poses", boost::bind(&getNStepsTargetService, _1, _2, i)));
+			"cinempc/" + targets_names.at(i) + "/get_next_poses", boost::bind(&getNStepsTargetService, _1, _2, i)));
 	move_target_x_per_step.push_back(0);  // - camera_adjustement;
 	move_target_y_per_step.push_back(0);
 	yaw_target.push_back(0);
@@ -96,10 +96,10 @@ int main(int argc, char **argv)
 
   while (ros::ok())
   {
-	if (sequence == 1.5 || sequence == 2)
+	if (sequence == 1 || sequence == 2)
 	{
 	  move_target_x_per_step.at(0) = 0;	 // - camera_adjustement;
-	  move_target_y_per_step.at(0) = 0.02;
+	  move_target_y_per_step.at(0) = 0.015;
 	}
 	else if (sequence == 2.5 || sequence == 3)
 	{

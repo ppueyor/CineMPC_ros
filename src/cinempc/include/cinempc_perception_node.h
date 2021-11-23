@@ -1,4 +1,5 @@
 #include <cinempc/PerceptionMsg.h>
+#include <cinempc/PersonStatePerception.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>
 
@@ -12,5 +13,5 @@
 #include "opencv4/opencv2/opencv.hpp"
 #include "ros/ros.h"
 
-DarkHelp darkhelp;
-ros::Publisher perception_result_publisher;
+DarkHelp::NN darkhelp;
+std::vector<ros::Publisher> perception_result_publishers = {};

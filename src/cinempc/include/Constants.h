@@ -1,3 +1,7 @@
+
+#include <string>
+#include <vector>
+
 const double PI = 3.14159265358979323846;  //(mm)
 // position of the subject to record
 // rotations
@@ -18,6 +22,8 @@ const double camera_adjustement_m =
 
 // bounding box
 const double bounding_heigth = 180, bounding_width = 160;
+
+std::vector<std::string> targets_names = { "Person1", "Person2" };
 
 // desired image/bounding box pixels
 const double desired_y_pixels_up = 100;

@@ -9,6 +9,7 @@
 #include <cinempc/MPCResult.h>
 #include <cinempc/PerceptionMsg.h>
 #include <nav_msgs/Odometry.h>
+#include <std_msgs/Bool.h>
 #include <std_msgs/Float32.h>
 #include <stdio.h>
 
@@ -29,8 +30,9 @@
 #include "ros/ros.h"
 #include "spline.h"
 //#include <matplot/matplot.h>
-
 #include <QuaternionConverters.h>
+#include <cinempc/PersonStateMPC.h>
+#include <cinempc/PersonStatePerception.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/LinearMath/Transform.h>
@@ -41,12 +43,13 @@
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/QR>
+#include <kalman.hpp>
 #include <random>
 
 ros::Publisher fpv_intrinsics_publisher;
 ros::Publisher perception_publisher;
 ros::Publisher gimbal_rotation_publisher;
-ros::Publisher new_state_publisher;
+ros::Publisher new_MPC_state_publisher;
 
 ros::ServiceClient service_move_on_path;
 

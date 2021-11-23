@@ -1,4 +1,0 @@
-<launch>
-	<node name="move_person_node" pkg="cinempc" type="move_person_node"  output="screen">
-	</node>
-</launch>

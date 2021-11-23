@@ -44,8 +44,9 @@ add_message_files(
   MPCIncomingState.msg
   DroneAndCameraState.msg
   PerceptionMsg.msg
+  PersonStatePerception.msg
   MPCResult.msg
-  TargetStates.msg
+  PersonStateMPC.msg
   Constraints.msg
   Weights.msg
 )
@@ -103,9 +104,10 @@ add_executable(cinempc_user_node src/cinempc_user_node.cpp)
 add_dependencies(cinempc_user_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_user_node ${catkin_LIBRARIES} )
 
-add_executable(cinempc_main_node src/cinempc_main_node.cpp src/SimpleKalmanFilter.cpp) 
+add_executable(cinempc_main_node src/cinempc_main_node.cpp src/SimpleKalmanFilter.cpp src/kalman.cpp) 
 add_dependencies(cinempc_main_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_main_node ${catkin_LIBRARIES} )
+
 
 install(TARGETS
     #list of nodes
