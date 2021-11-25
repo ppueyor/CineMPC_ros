@@ -1,5 +1,5 @@
 int8 sequence
-cinempc/PersonStateMPC[] targets
+cinempc/PersonStateMPC[] targets_relative
 geometry_msgs/Pose drone_pose
 ---
 cinempc/Constraints contraints

@@ -94,7 +94,8 @@ void initializeKalmanFilter()
   Q << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
   R << 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
 
-  P << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1;
+  P << 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0,
+      0, 0.5;
 
   std::cout << "A: \n" << A << std::endl;
   std::cout << "C: \n" << C << std::endl;
@@ -178,63 +179,60 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
 
 void readTargetStatePerceptionCallback(const cinempc::PersonStatePerception::ConstPtr& msg, int target_index)
 {
-  targets_states.at(target_index).pose_head = msg->pose_head;
-  targets_states.at(target_index).pose_hip = msg->pose_hip;
-  targets_states.at(target_index).pose_feet = msg->pose_feet;
+  // For now, msg just contains positions
+  geometry_msgs::Pose pose_head, pose_hips, pose_feet;
 
-  geometry_msgs::Pose wTt = cinempc::calculateDroneDistanceToWorld<double>(drone_pose, msg->pose_head, false);
+  // relative position drone_target
+  pose_head.position = msg->pose_head.position;
+  pose_hips.position = msg->pose_hips.position;
+  pose_feet.position = msg->pose_feet.position;
+
+  // world position target
+  geometry_msgs::Pose wTt = cinempc::calculate_world_pose_from_relative<double>(drone_pose, msg->pose_head, false);
 
   std::vector<geometry_msgs::Point> state = updateKalmanWithNewMeasure(wTt);
   geometry_msgs::Pose p_gt = targets_poses1.at(0);
-  std::cout << "gt_x: " << p_gt.position.x << "  gt_y: " << p_gt.position.y << "  gt_z " << p_gt.position.z << std::endl
-            << std::endl
-            << "wvt_x: " << wTt.position.x << "  wvt_y: " << wTt.position.y << "  wvt_z " << wTt.position.z << std::endl
-            << std::endl
-            << "est_x: " << state.at(0).x << "  est_y: " << state.at(0).y << "  est_z: " << state.at(0).z << std::endl
-            << std::endl
-            << "est_vx: " << state.at(1).x << "  est_vy: " << state.at(1).y << "  est_vz: " << state.at(1).z;
-
-  // float target_x_perception = wTt.position.x;  // + generateNoise(0, 0.04);
-  // float target_y_perception = wTt.position.y;  // + generateNoise(0, 0.04);
-  // float target_z_perception = wTt.position.z;  // + generateNoise(0, 0.04);
-  // // std::cout << "target_x_perception: " << target_x_perception << "  target_y_perception: " << target_y_perception
-  // //<< "  target_z_perception: " << target_z_perception << std::endl;
-
-  // float error_x = abs(target_x_perception - (targets_poses1.at(0).position.x));
-  // float error_y = abs(target_y_perception - (targets_poses1.at(0).position.y));
-  // float error_z = abs(target_z_perception - (targets_poses1.at(0).position.z));
-
-  // std::cout << "error_x: " << error_x << "  error_y: " << error_y << "  error_z: " << error_z << std::endl;
-
-  // std::cout << "target_x_perception: " << target_x_perception << "  target_y_perception: " << target_y_perception
-  //           << "  target_z_perception: " << target_z_perception << std::endl;
-
-  // std::cout << "target_x_gt: " << targets_poses1.at(0).position.x
-  //           << "  target_y_gt: " << targets_poses1.at(0).position.y
-  //           << "  target_z_gt: " << targets_poses1.at(0).position.z << std::endl;
+  // std::cout << "gt_x: " << p_gt.position.x << "  gt_y: " << p_gt.position.y << "  gt_z " << p_gt.position.z <<
+  // std::endl
+  //           << std::endl
+  //           << "wvt_x: " << wTt.position.x << "  wvt_y: " << wTt.position.y << "  wvt_z " << wTt.position.z <<
+  //           std::endl
+  //           << std::endl
+  //           << "est_x: " << state.at(0).x << "  est_y: " << state.at(0).y << "  est_z: " << state.at(0).z <<
+  //           std::endl
+  //           << std::endl
+  //           << "est_vx: " << state.at(1).x << "  est_vy: " << state.at(1).y << "  est_vz: " << state.at(1).z;
 
   Eigen::Matrix<double, 3, 1> wvt(state.at(1).x, state.at(1).y, state.at(1).z);
   wvt.normalize();
-  Eigen::Matrix<double, 3, 1> g(0, 0, -9.8);
+  Eigen::Matrix<double, 3, 1> g(0, 0, 9.8);
   g.normalize();
   Eigen::Matrix<double, 3, 1> a = g.cross(wvt);
   a.normalize();
   Eigen::Matrix<double, 3, 1> b = wvt.cross(a);
   b.normalize();
 
+  // Now we have R in the world, we suppose all the parts of the target will have the same orientation
   Eigen::Matrix<double, 3, 3> R;
   R.col(0) = wvt;
   R.col(1) = a;
   R.col(2) = b;
 
-  cinempc::RPY<double> rpy = cinempc::RMatrixtoRPY<double>(R);
+  wTt.orientation = cinempc::RMatrixToQuat<double>(R);
+  geometry_msgs::Quaternion relative_orientation =
+      cinempc::calculate_relative_pose_drone_person<double>(wTt, drone_pose).orientation;
 
-  std::cout << std::endl
-            << "  " << R << std::endl
-            << std::endl
-            << rpy.roll << std::endl
-            << rpy.pitch << std::endl
-            << rpy.yaw << "  " << std::endl;
+  // Needs relative! This is world
+  pose_head.orientation = relative_orientation;
+  pose_hips.orientation = relative_orientation;
+  pose_feet.orientation = relative_orientation;
+
+  targets_states.at(target_index).pose_head = pose_head;
+  targets_states.at(target_index).pose_hips = pose_hips;
+  targets_states.at(target_index).pose_feet = pose_feet;
+
+  cinempc::RPY<double> rpy = cinempc::RMatrixtoRPY<double>(R);
+  cinempc::RPY<double> rpy_d = cinempc::RMatrixtoRPY<double>(cinempc::quatToRMatrix<double>(drone_pose.orientation));
 }
 
 void initializeTargets()
@@ -285,16 +283,17 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
     geometry_msgs::Pose world_T_result;
 
-    world_T_result = cinempc::calculateDroneDistanceToWorld<double>(drone_pose, cine_mpc_result.drone_pose, false);
+    world_T_result = cinempc::calculate_world_pose_from_relative<double>(drone_pose, cine_mpc_result.drone_pose);
 
     cinempc::RPY<double> rpy = cinempc::quatToRPY<double>(world_T_result.orientation);
+    cinempc::RPY<double> rpy_drone = cinempc::quatToRPY<double>(cine_mpc_result.drone_pose.orientation);
     yaw_vector.insert(yaw_vector.begin() + index_mpc, rpy.yaw);
     pitch_vector.insert(pitch_vector.begin() + index_mpc, rpy.pitch);
 
     geometry_msgs::Point path_point(world_T_result.position);
     pathMPC.push_back(path_point);
 
-    // std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
+    std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
 
     if (index_mpc == 1)
     {
@@ -305,7 +304,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     geometry_msgs::Pose dTvel;
     dTvel.position = cine_mpc_result.velocity;
     dTvel.orientation = world_T_result.orientation;
-    geometry_msgs::Pose wTvel = cinempc::calculateDroneDistanceToWorld<double>(drone_pose, dTvel, true);
+    geometry_msgs::Pose wTvel = cinempc::calculate_world_pose_from_relative<double>(drone_pose, dTvel, true);
 
     max_vel_x = max(abs(wTvel.position.x), max_vel_x);
     max_vel_y = max(abs(wTvel.position.y), max_vel_y);
@@ -406,7 +405,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       {
         if (sequence == 1 || sequence == 3)
         {
-          target_state.poses_down.push_back(person_state.pose_feet);
+          target_state.poses_down.push_back(person_state.pose_hips);
         }
         else
         {
@@ -450,7 +449,9 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
                                                                                                      "get_"
                                                                                                      "constraints");
       cinempc::GetUserConstraints srv;
-      srv.request.targets = msg_perception.targets;
+      srv.request.targets_relative = msg_perception.targets;
+      srv.request.drone_pose = drone_pose;
+      cinempc::RPY<double> rpy = cinempc::quatToRPY<double>(msg_perception.targets.at(0).poses_up.at(0).orientation);
       srv.request.sequence = 1;
 
       if (service_get_user_constraints.call(srv))
@@ -499,14 +500,14 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
                                                                                                        "get_"
                                                                                                        "constraints");
         cinempc::GetUserConstraints srv;
-        srv.request.targets = msg_gt.targets;
+        srv.request.targets_relative = msg_gt.targets;
         srv.request.sequence = 1;
 
-        if (service_get_user_constraints.call(srv))
-        {
-          msg_gt.constraints = srv.response.contraints;
-          // new_MPC_state_publisher.publish(msg_gt);
-        }
+        // if (service_get_user_constraints.call(srv))
+        //{
+        // msg_gt.constraints = srv.response.contraints;
+        // new_MPC_state_publisher.publish(msg_gt);
+        //}
       }
     }
   }

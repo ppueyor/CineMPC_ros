@@ -11,7 +11,7 @@
 
 float sequence = 1;
 double move_person_step_dt = 10;
-std::vector<double> move_target_x_per_step, move_target_y_per_step, yaw_target;
+std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step, yaw_target;
 
 geometry_msgs::PoseStamped initial_state;
 
@@ -85,6 +85,7 @@ int main(int argc, char **argv)
 			"cinempc/" + targets_names.at(i) + "/get_next_poses", boost::bind(&getNStepsTargetService, _1, _2, i)));
 	move_target_x_per_step.push_back(0);  // - camera_adjustement;
 	move_target_y_per_step.push_back(0);
+	move_target_z_per_step.push_back(0);
 	yaw_target.push_back(0);
   }
 
@@ -98,8 +99,9 @@ int main(int argc, char **argv)
   {
 	if (sequence == 1 || sequence == 2)
 	{
-	  move_target_x_per_step.at(0) = 0;	 // - camera_adjustement;
+	  move_target_x_per_step.at(0) = 0;	 // 0.005;	 // - camera_adjustement;
 	  move_target_y_per_step.at(0) = 0.015;
+	  move_target_z_per_step.at(0) = 0;	 //-0.005;
 	}
 	else if (sequence == 2.5 || sequence == 3)
 	{
@@ -116,7 +118,7 @@ int main(int argc, char **argv)
 
 	initial_state.pose.position.y = initial_state.pose.position.y + move_target_y_per_step.at(0);
 
-	initial_state.pose.position.z = initial_state.pose.position.z + 0;
+	initial_state.pose.position.z = initial_state.pose.position.z + move_target_z_per_step.at(0);
 
 	tf2::Quaternion quaternion_tf;
 	quaternion_tf.setRPY(0, 0, yaw_target.at(0));

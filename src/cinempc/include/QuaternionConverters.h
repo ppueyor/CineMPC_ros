@@ -84,23 +84,6 @@ Eigen::Matrix<T, 3, 3> quatToRMatrix(geometry_msgs::Quaternion q)
 }
 
 template <typename T>
-Eigen::Matrix<T, 3, 3> quatToRMatrix(geometry_msgs::Quaternion q, bool person1)
-{
-  double roll, pitch, yaw;
-  tf2::Quaternion quat_tf;
-  tf2::fromMsg(q, quat_tf);
-  Eigen::Matrix<T, 3, 3> mat_res;
-  tf2::Matrix3x3(quat_tf).getRPY(roll, pitch, yaw);
-
-  if (person1)
-  {
-    yaw += KDL::PI / 2;
-  }
-
-  return RPYtoRMatrix<T>(roll, pitch, yaw);
-}
-
-template <typename T>
 geometry_msgs::Quaternion RMatrixToQuat(Eigen::Matrix<T, 3, 3> matrix)
 {
   tf2::Quaternion quaternion_tf;
@@ -155,16 +138,16 @@ geometry_msgs::Pose calculate_relative_poses_drone_targets(geometry_msgs::Pose d
 }
 
 template <typename T>
-geometry_msgs::Pose calculate_relative_pose_drone_person(geometry_msgs::Pose person_pose,
+geometry_msgs::Pose calculate_relative_pose_drone_person(geometry_msgs::Pose target_pose,
                                                          geometry_msgs::Pose drone_pose)
 {
   geometry_msgs::Pose relative_pose;
 
   Eigen::Matrix<T, 3, 3> wRd = quatToRMatrix<T>(drone_pose.orientation);
-  Eigen::Matrix<T, 3, 3> wRp = quatToRMatrix<T>(person_pose.orientation, true);
+  Eigen::Matrix<T, 3, 3> wRp = quatToRMatrix<T>(target_pose.orientation);
   Eigen::Matrix<T, 3, 3> dRp = wRd.transpose() * wRp;
 
-  Eigen::Matrix<T, 3, 1> wtp(person_pose.position.x, person_pose.position.y, person_pose.position.z);
+  Eigen::Matrix<T, 3, 1> wtp(target_pose.position.x, target_pose.position.y, target_pose.position.z);
   Eigen::Matrix<T, 3, 1> wtd(drone_pose.position.x, drone_pose.position.y, drone_pose.position.z);
 
   Eigen::Matrix<T, 3, 1> dtp = wRd.transpose() * (wtp - wtd);
@@ -179,16 +162,39 @@ geometry_msgs::Pose calculate_relative_pose_drone_person(geometry_msgs::Pose per
 }
 
 template <typename T>
-geometry_msgs::Pose calculateDroneDistanceToWorld(geometry_msgs::Pose drone_pose, geometry_msgs::Pose drone_steps_pose,
-                                                  bool from_zero)
+geometry_msgs::Pose calculate_world_pose_from_relative(geometry_msgs::Pose drone_pose, geometry_msgs::Pose target_pose)
 {
   geometry_msgs::Pose drone_distance_relative;
 
   Eigen::Matrix<T, 3, 3> wRd = quatToRMatrix<T>(drone_pose.orientation);
-  Eigen::Matrix<T, 3, 3> wRs = wRd * quatToRMatrix<T>(drone_steps_pose.orientation);
+  Eigen::Matrix<T, 3, 3> wRs = wRd * quatToRMatrix<T>(target_pose.orientation);
   Eigen::Matrix<T, 3, 1> wts;
 
-  Eigen::Matrix<T, 3, 1> dts(drone_steps_pose.position.x, drone_steps_pose.position.y, drone_steps_pose.position.z);
+  Eigen::Matrix<T, 3, 1> dts(target_pose.position.x, target_pose.position.y, target_pose.position.z);
+  Eigen::Matrix<T, 3, 1> wtd(drone_pose.position.x, drone_pose.position.y, drone_pose.position.z);
+
+  wts = wtd + wRd * dts;
+
+  drone_distance_relative.position.x = wts(0);
+  drone_distance_relative.position.y = wts(1);
+  drone_distance_relative.position.z = wts(2);
+
+  drone_distance_relative.orientation = RMatrixToQuat(wRs);
+
+  return (drone_distance_relative);
+}
+
+template <typename T>
+geometry_msgs::Pose calculate_world_pose_from_relative(geometry_msgs::Pose drone_pose, geometry_msgs::Pose target_pose,
+                                                       bool from_zero)
+{
+  geometry_msgs::Pose drone_distance_relative;
+
+  Eigen::Matrix<T, 3, 3> wRd = quatToRMatrix<T>(drone_pose.orientation);
+  Eigen::Matrix<T, 3, 3> wRs = wRd * quatToRMatrix<T>(target_pose.orientation);
+  Eigen::Matrix<T, 3, 1> wts;
+
+  Eigen::Matrix<T, 3, 1> dts(target_pose.position.x, target_pose.position.y, target_pose.position.z);
   Eigen::Matrix<T, 3, 1> wtd(drone_pose.position.x, drone_pose.position.y, drone_pose.position.z);
 
   if (from_zero)
@@ -210,9 +216,9 @@ geometry_msgs::Pose calculateDroneDistanceToWorld(geometry_msgs::Pose drone_pose
 
 // For now we assume that the target will be rotated as the world
 template <typename T>
-geometry_msgs::Pose relativePoseToDroneFromImage(T focal_length_mm, T u_px, T v_px, T depth_mm,
-                                                 geometry_msgs::Quaternion world_drone_orientation,
-                                                 geometry_msgs::Quaternion world_target_orientation)
+geometry_msgs::Pose drone_relative_position_from_image(T focal_length_mm, T u_px, T v_px, T depth_mm,
+                                                       geometry_msgs::Quaternion world_drone_orientation,
+                                                       geometry_msgs::Quaternion world_target_orientation)
 {
   T x0_mm = sensor_width_mm / 2;
   T y0_mm = sensor_height_mm / 2;

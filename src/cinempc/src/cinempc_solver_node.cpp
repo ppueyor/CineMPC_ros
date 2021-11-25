@@ -209,7 +209,8 @@ Pixel_MPC readPixel(AD<double> focal_length_mm, AD<double> relative_position_x_m
   AD<double> yPixels_px = y_mm * picture_height_px / sensor_height_mm;
 
   Pixel_MPC p;
-  p.x = xPixels_px;   sensor_width_mm / 2 + ((focal_length_mm * vectorPixels(0)) / vectorPixels(2)) * picture_width_px / sensor_width_mm;
+  p.x = xPixels_px;
+  sensor_width_mm / 2 + ((focal_length_mm * vectorPixels(0)) / vectorPixels(2)) * picture_width_px / sensor_width_mm;
   p.y = yPixels_px;
 
   return (p);
@@ -252,7 +253,7 @@ public:
 		AD<double> relative_z_down_target = target_states.at(j).poses_down.at(t).position.z - (vars[z_start + t]);
 
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
-			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).poses_up.at(t).orientation, false);
+			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).poses_up.at(t).orientation);
 
 		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPYtoRMatrix<AD<double>>(
 			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
@@ -324,7 +325,7 @@ public:
 		if (constraints.weights.w_R_targets.at(j) > 0)
 		{
 		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star =
-			  cinempc::quatToRMatrix<AD<double>>(constraints.targets_orientation_star.at(j), false);
+			  cinempc::quatToRMatrix<AD<double>>(constraints.targets_orientation_star.at(j));
 		  Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target = new_drone_R.transpose() * drone_R_target;
 		  rot_plot = cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target);
 		  rot_plot_d = cinempc::RMatrixtoRPY<AD<double>>(drone_R_star);

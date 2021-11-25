@@ -86,32 +86,35 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   if (personsFound > 0)
   {
     Rect rect1 = result.rect;
-    float target_u = rect1.x + (rect1.width / 2);
-    float target_v = rect1.y;  // + (rect1.height / 8);
+    float target_u_center = rect1.x + (rect1.width / 2);
+    float target_v_top = rect1.y;  // + (rect1.height);
     float target_v_center = rect1.y + (rect1.height / 2);
 
-    int pixel = (target_v_center * msg.rgb.width) + target_u;
+    int pixel = (target_v_center * msg.rgb.width) + target_u_center;
 
     float depth_target = calculateDepth(depth_cv_ptr, rect1);  // convert to mms
 
-    geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, subject_yaw);
+    geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
 
-    geometry_msgs::Pose drone_pose_head =
-        cinempc::relativePoseToDroneFromImage<double>(msg.drone_state.intrinsics.focal_length, target_u, target_v,
-                                                      depth_target, msg.drone_state.drone_pose.orientation, wRt);
+    geometry_msgs::Pose drone_pose_top = cinempc::drone_relative_position_from_image<double>(
+        msg.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
+        msg.drone_state.drone_pose.orientation, wRt);
+
+    geometry_msgs::Pose drone_pose_head = drone_pose_top;
+    drone_pose_head.position.z = drone_pose_head.position.z + 0.2;
 
     // we calculate the position of the head and then the rest of the body
     geometry_msgs::Pose head_pose_hips;
     head_pose_hips.orientation = cinempc::RPYToQuat<double>(0, 0, 0);
     head_pose_hips.position.z = 0;
     head_pose_hips.position.z = 0;
-    head_pose_hips.position.z = 0.5;
+    head_pose_hips.position.z = 0.7;
 
     geometry_msgs::Pose head_pose_feet;
     head_pose_feet.orientation = cinempc::RPYToQuat<double>(0, 0, 0);
     head_pose_feet.position.z = 0;
     head_pose_feet.position.z = 0;
-    head_pose_feet.position.z = 1.2;
+    head_pose_feet.position.z = 1.66;
 
     geometry_msgs::Pose drone_pose_hips =
         cinempc::calculate_relative_poses_drone_targets<double>(drone_pose_head, head_pose_hips);
@@ -120,7 +123,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 
     cinempc::PersonStatePerception person_msg;
     person_msg.pose_head = drone_pose_head;
-    person_msg.pose_hip = drone_pose_hips;
+    person_msg.pose_hips = drone_pose_hips;
     person_msg.pose_feet = drone_pose_feet;
 
     // TODO: SAME POSE FOR BOTH TARGETS
