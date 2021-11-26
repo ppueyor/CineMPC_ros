@@ -243,7 +243,31 @@ public:
 	AD<double> distance_2D_target, minimum_distance_2D_target = 10000;
 	for (int t = 0; t < MPC_N; t++)
 	{
-	  AD<double> Jp = 0, Jim = 0, JDoF = 0;
+	  AD<double> Jp = 0, Jim = 0, JDoF = 0, JFoc = 0;
+	  // Cost_DoF
+	  AD<double> hyperfocal_distance_mms = hyperFocalDistance(vars[focal_length_start + t], vars[aperture_start + t]);
+
+	  AD<double> near_acceptable_distance = nearAcceptableDistance(
+		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
+		  (AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
+
+	  AD<double> far_acceptable_distance = farAcceptableDistance(
+		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
+		  (AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
+
+	  AD<double> cost_near = CppAD::pow(near_acceptable_distance - constraints.dn_star, 2);
+	  JDoF += constraints.weights.w_dn * (cost_near);
+
+	  AD<double> cost_far = CppAD::pow(far_acceptable_distance - constraints.df_star, 2);
+	  JDoF += constraints.weights.w_df * (cost_far);
+
+	  if (constraints.weights.w_focal > 0)
+	  {
+		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
+		JFoc += constraints.weights.w_focal * cost_foc;
+	  }
+
+	  fg[0] += JDoF + JFoc;	 // one time /camera
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
 		// calculate relative distances
@@ -257,23 +281,6 @@ public:
 
 		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPYtoRMatrix<AD<double>>(
 			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
-
-		// Cost_DoF
-		AD<double> hyperfocal_distance_mms = hyperFocalDistance(vars[focal_length_start + t], vars[aperture_start + t]);
-
-		AD<double> near_acceptable_distance = nearAcceptableDistance(
-			vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
-			(AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
-
-		AD<double> far_acceptable_distance = farAcceptableDistance(
-			vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
-			(AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
-
-		AD<double> cost_near = CppAD::pow(near_acceptable_distance - constraints.dn_star, 2);
-		JDoF += constraints.weights.w_dn * (cost_near);
-
-		AD<double> cost_far = CppAD::pow(far_acceptable_distance - constraints.df_star, 2);
-		JDoF += constraints.weights.w_df * (cost_far);
 
 		// Cost_img
 		Pixel_MPC pixel_up_target = readPixel(vars[focal_length_start + t],	 // head
@@ -339,7 +346,7 @@ public:
 		  Jp += constraints.weights.w_R_targets.at(j) * cost_R_target;
 		}
 
-		fg[0] += Jp + Jim + JDoF;
+		fg[0] += Jp + Jim;	// for each target
 
 		if (t == 0 && j == 0)
 		{
@@ -374,23 +381,17 @@ public:
 					<< "   Jp:  " << Jp << endl
 					<< "   Jim:  " << Jim << endl
 					<< "   JDoF:  " << JDoF << endl
+					<< "   JFoc:  " << JFoc << endl
 					<< std::endl;
 
-		  std::cout << "DOF " << std::endl
+		  std::cout << "JDoF " << std::endl
 					<< "--------- " << std::endl
 					<< "   Dn:  " << near_acceptable_distance << std::endl
 					<< "   dn_desired:  " << constraints.dn_star << std::endl
 					<< "   Df:  " << far_acceptable_distance << std::endl
 					<< "   df_desired:  " << constraints.df_star << std::endl;
 
-		  std::cout << "RELATIVE DISTANCE " << std::endl
-					<< "--------- " << std::endl
-					<< "   relative_boy_mpc_x_var:  " << relative_x_target << std::endl
-					<< "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
-					<< "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl
-					<< "   relative_boy_mpc_z_down_var:  " << relative_z_down_target << std::endl;
-
-		  std::cout << "IMAGE " << std::endl
+		  std::cout << "Jim " << std::endl
 					<< "--------- " << std::endl
 					<< "   current_pixel_u_boy:  " << current_pixel_u_target << std::endl
 					<< "   current_pixel_u_boy_desired:  " << constraints.targets_im_up_star.at(j).x << std::endl
@@ -400,7 +401,13 @@ public:
 					<< "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_down_star.at(j).y
 					<< std::endl;
 
-		  std::cout << "P " << std::endl
+		  std::cout << "JFoc " << std::endl
+					<< "--------- " << std::endl
+					<< "   current_focal:  " << vars[focal_length_start + t] << std::endl
+					<< "   focal_desired:  " << constraints.focal_star << std::endl
+					<< std::endl;
+
+		  std::cout << "Jp " << std::endl
 					<< "--------- " << std::endl
 					<< "   d_boy:  " << distance_2D_target << std::endl
 					<< "   d_boy_desired:  " << constraints.targets_d_star.at(j) << std::endl
@@ -408,6 +415,13 @@ public:
 					<< "   yaw_boy_desired:  " << constraints.targets_orientation_star.at(j).x << endl
 					<< "   pitch_boy:  " << std::endl
 					<< "   pitch_boy_desired:  " << constraints.targets_orientation_star.at(j).y << std::endl;
+
+		  std::cout << "RELATIVE DISTANCE " << std::endl
+					<< "--------- " << std::endl
+					<< "   relative_boy_mpc_x_var:  " << relative_x_target << std::endl
+					<< "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
+					<< "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl
+					<< "   relative_boy_mpc_z_down_var:  " << relative_z_down_target << std::endl;
 		}
 	  }
 	}
@@ -630,7 +644,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  if (use_cineMPC)
 	  {
 		lowerbound = 30;
-		upperbound = 300;
+		upperbound = 500;
 	  }
 	  else
 	  {

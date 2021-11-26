@@ -3,8 +3,10 @@
 #include <vector>
 
 const double PI = 3.14159265358979323846;  //(mm)
+
 // position of the subject to record
 // rotations
+const bool static_target = true, use_perception = true;
 const double subject_yaw = PI / 2, drone_start_yaw = -PI / 2;
 
 const bool use_cv = false;
