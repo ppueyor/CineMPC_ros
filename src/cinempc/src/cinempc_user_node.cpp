@@ -22,7 +22,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
   Eigen::Matrix<double, 3, 3> dRboy_perception =
       cinempc::quatToRMatrix<double>(req.targets_relative.at(0).poses_up.at(0).orientation);
 
-  Eigen::Matrix<double, 3, 3> wRboy = cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw);
+  Eigen::Matrix<double, 3, 3> wRboy = cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw_gt);
 
   cinempc::RPY<double> RPY_boy = cinempc::RMatrixtoRPY<double>(wRboy);
   cinempc::RPY<double> RPY_boy__rel_perc = cinempc::RMatrixtoRPY<double>(dRboy_perception);

@@ -100,7 +100,7 @@ int main(int argc, char **argv)
 	if (sequence == 1 || sequence == 2)
 	{
 	  move_target_x_per_step.at(0) = 0;	 // 0.005;	 // - camera_adjustement;
-	  move_target_y_per_step.at(0) = 0;	 // 0.015;
+	  move_target_y_per_step.at(0) = 0.015;
 	  move_target_z_per_step.at(0) = 0;	 //-0.005;
 	}
 	else if (sequence == 2.5 || sequence == 3)

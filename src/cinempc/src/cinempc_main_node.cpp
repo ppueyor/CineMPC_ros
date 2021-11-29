@@ -5,8 +5,8 @@ using namespace std;
 using namespace std::chrono;
 
 // Current position of drone
-std::vector<cinempc::PersonStatePerception> targets_states_perception, targets_states_gt;
-std::vector<geometry_msgs::Pose> targets_poses1;
+std::vector<cinempc::PersonStatePerception> relative_targets_states_perception, world_targets_states_perception,
+    relative_targets_states_gt, world_targets_states_gt;
 string errors;
 
 float focal_length = 35, focus_distance = 10000, aperture = 20;
@@ -177,25 +177,27 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   pose_head.position.x = target_x_noise;
   pose_head.position.y = target_y_noise;
   pose_head.position.z = target_z_noise_head;
-  pose_head.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw);
+  pose_head.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
   pose_hips.position.x = target_x_noise;
   pose_hips.position.y = target_y_noise;
   pose_hips.position.z = target_z_noise_hips;
-  pose_hips.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw);
+  pose_hips.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
   pose_feet.position.x = target_x_noise;
   pose_feet.position.y = target_y_noise;
   pose_feet.position.z = target_z_noise_feet;
-  pose_feet.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw);
+  pose_feet.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
   relative_pose_head = cinempc::calculate_relative_pose_drone_person<double>(pose_head, drone_pose);
   relative_pose_hips = cinempc::calculate_relative_pose_drone_person<double>(pose_hips, drone_pose);
   relative_pose_feet = cinempc::calculate_relative_pose_drone_person<double>(pose_feet, drone_pose);
 
-  targets_states_gt.at(i).pose_head = relative_pose_head;
-  targets_states_gt.at(i).pose_hips = relative_pose_hips;
-  targets_states_gt.at(i).pose_feet = relative_pose_feet;
+  relative_targets_states_gt.at(i).pose_head = relative_pose_head;
+  relative_targets_states_gt.at(i).pose_hips = relative_pose_hips;
+  relative_targets_states_gt.at(i).pose_feet = relative_pose_feet;
+
+  world_targets_states_gt.at(i).pose_head = pose_head;
 }
 
 void readTargetStatePerceptionCallback(const cinempc::PersonStatePerception::ConstPtr& msg, int target_index)
@@ -207,49 +209,40 @@ void readTargetStatePerceptionCallback(const cinempc::PersonStatePerception::Con
   pose_head_perception.position = msg->pose_head.position;
 
   // world position target
-  geometry_msgs::Pose wThead = cinempc::calculate_world_pose_from_relative<double>(drone_pose, msg->pose_head, false);
-  std::vector<geometry_msgs::Point> state = updateKalmanWithNewMeasure(wThead);
+  geometry_msgs::Pose wThead_measure =
+      cinempc::calculate_world_pose_from_relative<double>(drone_pose, msg->pose_head, false);
+  geometry_msgs::Pose wThead_kf;
+  std::vector<geometry_msgs::Point> state = updateKalmanWithNewMeasure(wThead_measure);
+
+  Eigen::Matrix<double, 3, 1> wvt(state.at(1).x, state.at(1).y, state.at(1).z);
+  wvt.normalize();
+  Eigen::Matrix<double, 3, 1> g(0, 0, 9.8);
+  g.normalize();
+  Eigen::Matrix<double, 3, 1> a = g.cross(wvt);
+  a.normalize();
+  Eigen::Matrix<double, 3, 1> b = wvt.cross(a);
+  b.normalize();
+
+  // Now we have R in the world, we suppose all the parts of the target will have the same orientation
+  Eigen::Matrix<double, 3, 3> R;
+  R.col(0) = wvt;
+  R.col(1) = a;
+  R.col(2) = b;
 
   if (!static_target)
   {
-    geometry_msgs::Pose p_gt = targets_poses1.at(0);
-    // std::cout << "gt_x: " << p_gt.position.x << "  gt_y: " << p_gt.position.y << "  gt_z " << p_gt.position.z <<
-    // std::endl
-    //           << std::endl
-    //           << "wvt_x: " << wTt.position.x << "  wvt_y: " << wTt.position.y << "  wvt_z " << wTt.position.z <<
-    //           std::endl
-    //           << std::endl
-    //           << "est_x: " << state.at(0).x << "  est_y: " << state.at(0).y << "  est_z: " << state.at(0).z <<
-    //           std::endl
-    //           << std::endl
-    //           << "est_vx: " << state.at(1).x << "  est_vy: " << state.at(1).y << "  est_vz: " << state.at(1).z;
-
-    Eigen::Matrix<double, 3, 1> wvt(state.at(1).x, state.at(1).y, state.at(1).z);
-    wvt.normalize();
-    Eigen::Matrix<double, 3, 1> g(0, 0, 9.8);
-    g.normalize();
-    Eigen::Matrix<double, 3, 1> a = g.cross(wvt);
-    a.normalize();
-    Eigen::Matrix<double, 3, 1> b = wvt.cross(a);
-    b.normalize();
-
-    // Now we have R in the world, we suppose all the parts of the target will have the same orientation
-    Eigen::Matrix<double, 3, 3> R;
-    R.col(0) = wvt;
-    R.col(1) = a;
-    R.col(2) = b;
-
-    wThead.orientation = cinempc::RMatrixToQuat<double>(R);
-    wThead.position.x = state.at(0).x;
-    wThead.position.y = state.at(0).y;
-    wThead.position.z = state.at(0).z;
+    wThead_kf.orientation = cinempc::RMatrixToQuat<double>(R);
   }
   else
   {
-    wThead.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw);
+    wThead_kf.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
   }
+
+  wThead_kf.position.x = state.at(0).x;
+  wThead_kf.position.y = state.at(0).y;
+  wThead_kf.position.z = state.at(0).z;
   // Needs relative! This is world
-  geometry_msgs::Pose drone_pose_head = cinempc::calculate_relative_pose_drone_person<double>(wThead, drone_pose);
+  geometry_msgs::Pose drone_pose_head = cinempc::calculate_relative_pose_drone_person<double>(wThead_kf, drone_pose);
 
   // we calculate the position of the head and then the rest of the body
   geometry_msgs::Pose head_pose_hips;
@@ -269,21 +262,49 @@ void readTargetStatePerceptionCallback(const cinempc::PersonStatePerception::Con
   geometry_msgs::Pose drone_pose_feet =
       cinempc::calculate_relative_poses_drone_targets<double>(drone_pose_head, head_pose_feet);
 
-  targets_states_perception.at(target_index).pose_head = drone_pose_head;
-  targets_states_perception.at(target_index).pose_hips = drone_pose_hips;
-  targets_states_perception.at(target_index).pose_feet = drone_pose_feet;
+  relative_targets_states_perception.at(target_index).pose_head = drone_pose_head;
+  relative_targets_states_perception.at(target_index).pose_hips = drone_pose_hips;
+  relative_targets_states_perception.at(target_index).pose_feet = drone_pose_feet;
+
+  geometry_msgs::Pose p_gt = relative_targets_states_gt.at(0).pose_head;
+  std::cout << "gt_x: " << p_gt.position.x << "  gt_y: " << p_gt.position.y << "  gt_z " << p_gt.position.z << std::endl
+            << std::endl
+            << "est_x: " << drone_pose_head.position.x << "  est_y: " << drone_pose_head.position.y
+            << "  est_z: " << drone_pose_head.position.z << std::endl
+            << std::endl
+            << "est_vx: " << state.at(1).x << "  est_vy: " << state.at(1).y << "  est_vz: " << state.at(1).z
+            << std::endl;
+
+  ros::Time end_log = ros::Time::now();
+  ros::Duration diff = end_log - start_log;
+
+  float error_x = abs(drone_pose_head.position.x - (relative_targets_states_gt.at(0).pose_head.position.x));
+  float error_y = abs(drone_pose_head.position.y - (relative_targets_states_gt.at(0).pose_head.position.y));
+  float error_z = abs(drone_pose_head.position.z - (relative_targets_states_gt.at(0).pose_head.position.z));
+
+  errorFile << diff.toNSec() / 1000000 << "," << world_targets_states_gt.at(0).pose_head.position.x << ","
+            << world_targets_states_gt.at(0).pose_head.position.y << ","
+            << world_targets_states_gt.at(0).pose_head.position.z << "," << wThead_measure.position.x << ","
+            << wThead_measure.position.y << "," << wThead_measure.position.z << "," << wThead_kf.position.x << ","
+            << wThead_kf.position.y << "," << wThead_kf.position.z << ","
+            << relative_targets_states_gt.at(0).pose_head.position.x << ","
+            << relative_targets_states_gt.at(0).pose_head.position.y << ","
+            << relative_targets_states_gt.at(0).pose_head.position.z << "," << pose_head_perception.position.x << ","
+            << pose_head_perception.position.y << "," << pose_head_perception.position.z << "," << error_x << ","
+            << error_y << "," << error_z << "," << state.at(1).x << "," << state.at(1).y << "," << state.at(1).z << ","
+            << 0 << "," << subject_yaw_gt << "," << cinempc::RMatrixtoRPY<double>(R).pitch << ","
+            << cinempc::RMatrixtoRPY<double>(R).yaw << std::endl;
 }
 
 void initializeTargets()
 {
   for (int i = 0; i < targets_names.size(); i++)
   {
-    geometry_msgs::Pose p;
-    targets_poses1.push_back(p);
-
     cinempc::PersonStatePerception state;
-    targets_states_perception.push_back(state);
-    targets_states_gt.push_back(state);
+    relative_targets_states_perception.push_back(state);
+    world_targets_states_perception.push_back(state);
+    relative_targets_states_gt.push_back(state);
+    world_targets_states_gt.push_back(state);
   }
 }
 
@@ -333,7 +354,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     geometry_msgs::Point path_point(world_T_result.position);
     pathMPC.push_back(path_point);
 
-    std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
+    // std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
 
     if (index_mpc == 1)
     {
@@ -383,7 +404,9 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
   // move on path
   airsim_ros_pkgs::MoveOnPath srv;
-  double max_vel = max(0.3, max(max_vel_x, max(max_vel_y, max_vel_z)));
+  double max_vel = max(0.1, max(max_vel_x, max(max_vel_y, max_vel_z)));
+
+  // std::cout << "max_vel:" << max_vel << std::endl;
   srv.request.vel = max_vel;
   srv.request.timeout = 10;
   srv.request.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
@@ -425,10 +448,10 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
     switch (use_perception)
     {
       case true:
-        target_state_perception = targets_states_perception.at(j);
+        target_state_perception = relative_targets_states_perception.at(j);
         break;
       default:
-        target_state_perception = targets_states_gt.at(j);
+        target_state_perception = relative_targets_states_gt.at(j);
         break;
     }
     cinempc::PersonStateMPC target_state_mpc = {};
@@ -525,25 +548,58 @@ int main(int argc, char** argv)
   logErrorFileName << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/logs/error_pos_"
                    << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << ".csv";
   errorFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
+
   errorFile << "Time"
             << ","
-            << "gt_x"
+            << "world_gt_x"
             << ","
-            << "gt_y"
+            << "world_gt_y"
             << ","
-            << "gt_z"
+            << "world_gt_z"
             << ","
-            << "perception_x"
+            << "world_perception_x"
             << ","
-            << "perception_y"
+            << "world_perception_y"
             << ","
-            << "perception_z"
+            << "world_perception_z"
+            << ","
+            << "kf_world_x"
+            << ","
+            << "kf_world_y"
+            << ","
+            << "kf_world_z"
+            << ","
+            << "drone_gt_x"
+            << ","
+            << "drone_gt_y"
+            << ","
+            << "drone_gt_z"
+            << ","
+            << "drone_perception_x"
+            << ","
+            << "drone_perception_y"
+            << ","
+            << "drone_perception_z"
             << ","
             << "error_x"
             << ","
             << "error_y"
             << ","
-            << "error_z" << std::endl;
+            << "error_z"
+            << ","
+            << "kf_v_x"
+            << ","
+            << "kf_v_y"
+            << ","
+            << "kf_v_z"
+            << ","
+            << "gt_pitch"
+            << ","
+            << "gt_yaw"
+            << ","
+            << "perception_pitch"
+            << ","
+            << "perception_yaw" << std::endl;
 
   ros::NodeHandle n;
 
