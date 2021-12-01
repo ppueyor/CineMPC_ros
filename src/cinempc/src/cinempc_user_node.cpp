@@ -92,7 +92,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     // c.weights.w_img_targets.at(1).z = 0;
 
     c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 0;  // 1 * 1;
+    c.weights.w_d_targets.at(0) = 10;  // 1 * 1;
     cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
         cinempc::RPYtoRMatrix<double>(0, 0, RPY_boy_perc.yaw - PI).transpose() * wRboy_perception);
 
@@ -105,7 +105,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
     geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
     c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 5000 * 5;
+    c.weights.w_R_targets.at(0) = 5000 * 10;
 
     c.focal_star = 35;
     c.weights.w_focal = 50;

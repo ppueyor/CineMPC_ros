@@ -91,8 +91,9 @@ void initializeKalmanFilter()
   C << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
 
   // Reasonable covariance matrices
-  Q << 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0;
-  R << 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
+  Q << 0.1, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
+      0, 0.1;
+  R << 1, 0, 0, 0, 1, 0, 0, 0, 1;
 
   P << 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0,
       0, 0.5;
@@ -293,7 +294,7 @@ void readTargetStatePerceptionCallback(const cinempc::PersonStatePerception::Con
             << pose_head_perception.position.y << "," << pose_head_perception.position.z << "," << error_x << ","
             << error_y << "," << error_z << "," << state.at(1).x << "," << state.at(1).y << "," << state.at(1).z << ","
             << 0 << "," << subject_yaw_gt << "," << cinempc::RMatrixtoRPY<double>(R).pitch << ","
-            << cinempc::RMatrixtoRPY<double>(R).yaw << std::endl;
+            << cinempc::RMatrixtoRPY<double>(R).yaw << "," << focal_length << std::endl;
 }
 
 void initializeTargets()
@@ -599,7 +600,9 @@ int main(int argc, char** argv)
             << ","
             << "perception_pitch"
             << ","
-            << "perception_yaw" << std::endl;
+            << "perception_yaw"
+            << ","
+            << "focal_length" << std::endl;
 
   ros::NodeHandle n;
 

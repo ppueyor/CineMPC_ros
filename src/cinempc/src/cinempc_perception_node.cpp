@@ -3,7 +3,7 @@
 
 using namespace cv;
 using namespace std;
-
+int i = 0;
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
 float calculateDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
 {
@@ -82,6 +82,9 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   int a = 0;
   cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/b.jpg", rgb_cv_ptr->image);
   cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/a.jpg", output);
+  // cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/a" + to_string(index_pic) +
+  // ".jpg",
+  //             output);
 
   if (personsFound > 0)
   {
@@ -92,8 +95,8 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 
     int pixel = (target_v_center * msg.rgb.width) + target_u_center;
 
-    float depth_target = calculateDepth(depth_cv_ptr, rect1);  // convert to mms
-
+    // float depth_target = calculateDepth(depth_cv_ptr, rect1);  // convert to mms
+    float depth_target = depth_cv_ptr->image.at<float>(target_v_center, target_u_center) * 100000;  // convert to mms
     geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
 
     geometry_msgs::Pose drone_pose_top = cinempc::drone_relative_position_from_image<double>(
