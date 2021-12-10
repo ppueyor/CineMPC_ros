@@ -6,7 +6,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 // position of the subject to record
 // rotations
-const bool static_target = true, use_perception = true;
+const bool static_target = true, use_perception = false, drone_moving = true;
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
 const bool use_cineMPC = true;

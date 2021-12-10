@@ -266,7 +266,6 @@ public:
 		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
 		JFoc += constraints.weights.w_focal * cost_foc;
 	  }
-
 	  fg[0] += JDoF + JFoc;	 // one time /camera
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
@@ -598,19 +597,44 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	double lowerbound, upperbound;
 	if (i >= x_start && i < y_start)
 	{
-	  lowerbound = x_lowest;
-	  upperbound = x_highest;
+	  if (drone_moving)
+	  {
+		lowerbound = y_lowest;
+		upperbound = y_highest;
+	  }
+	  else
+	  {
+		lowerbound = -0.0001;
+		upperbound = 0.0001;
+	  }
 	}
 	else if (i >= y_start && i < z_start)
 	{
-	  lowerbound = y_lowest;
-	  upperbound = y_highest;
+	  if (drone_moving)
+	  {
+		lowerbound = y_lowest;
+		upperbound = y_highest;
+	  }
+	  else
+	  {
+		lowerbound = -0.0001;
+		upperbound = 0.0001;
+	  }
 	}
 	else if (i >= z_start && i < roll_gimbal_start)
 	{
-	  lowerbound = -0.5;  // y_lowest;
-	  upperbound = msg->floor_pos - 0.8;
+	  if (drone_moving)
+	  {
+		lowerbound = y_lowest;
+		upperbound = y_highest;
+	  }
+	  else
+	  {
+		lowerbound = -0.5;	// y_lowest;
+		upperbound = msg->floor_pos - 0.8;
+	  }
 	}
+
 	else if (i >= roll_gimbal_start && i < pitch_gimbal_start)
 	{
 	  lowerbound = -0.5;

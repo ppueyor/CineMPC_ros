@@ -15,7 +15,7 @@ int index_splines = 0;
 bool noise = true;
 float sequence = 1;
 int change_sequence_index = 0;
-double steps_each_dt = 20;
+double steps_each_dt = 40;
 double interval = dt / steps_each_dt;
 double freq_loop = 1 / interval;
 bool stop = false;
@@ -39,7 +39,7 @@ SimpleKalmanFilter targets_kalman_filters[] = {
 
 std::vector<double> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
     pitch_vector;
-tk::spline focal_length_spline, focus_distance_spline, aperture_spline, yaw_spline, pitch_spline;
+tk::spline focal_length_spline, focus_distance_spline, aperture_spline, roll_spline, yaw_spline, pitch_spline;
 
 static std::default_random_engine generator;
 void myPoseMsgToTF(const geometry_msgs::Pose& msg, tf2::Transform& bt)
@@ -162,12 +162,12 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   geometry_msgs::Pose pose_head, pose_hips, pose_feet;
   geometry_msgs::Pose relative_pose_head, relative_pose_hips, relative_pose_feet;
 
-  float target_x_noise = msg->pose.position.x;         // + generateNoise(0, 0.04);
-  float target_y_noise = msg->pose.position.y;         // + generateNoise(0, 0.04);
-  float target_z_noise = msg->pose.position.z - 2.04;  // + generateNoise(0, 0.04); // top part
+  float target_x_noise = msg->pose.position.x;        // + generateNoise(0, 0.04);
+  float target_y_noise = msg->pose.position.y;        // + generateNoise(0, 0.04);
+  float target_z_noise = msg->pose.position.z - 1.8;  // + generateNoise(0, 0.04); // top part
 
-  float target_z_noise_head = target_z_noise + 0.2;        // + generateNoise(0, 0.04); // top part
-  float target_z_noise_hips = target_z_noise_head + 0.7;   // + generateNoise(0, 0.04); // top part
+  float target_z_noise_head = target_z_noise + 0;          // + generateNoise(0, 0.04); // top part
+  float target_z_noise_hips = target_z_noise_head + 0.3;   // + generateNoise(0, 0.04); // top part
   float target_z_noise_feet = target_z_noise_head + 1.66;  // + generateNoise(0, 0.04); // top part
 
   float target_x = targets_kalman_filters[i * 0].updateEstimate(target_x_noise);
@@ -250,7 +250,7 @@ void readTargetStatePerceptionCallback(const cinempc::PersonStatePerception::Con
   head_pose_hips.orientation = cinempc::RPYToQuat<double>(0, 0, 0);
   head_pose_hips.position.z = 0;
   head_pose_hips.position.z = 0;
-  head_pose_hips.position.z = 0.7;
+  head_pose_hips.position.z = 0.3;
 
   geometry_msgs::Pose head_pose_feet;
   head_pose_feet.orientation = cinempc::RPYToQuat<double>(0, 0, 0);
@@ -316,6 +316,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   focus_distance_vector.clear();
   aperture_vector.clear();
   yaw_vector.clear();
+  roll_vector.clear();
   pitch_vector.clear();
   times_vector.clear();
 
@@ -349,13 +350,28 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
     cinempc::RPY<double> rpy = cinempc::quatToRPY<double>(world_T_result.orientation);
     cinempc::RPY<double> rpy_drone = cinempc::quatToRPY<double>(cine_mpc_result.drone_pose.orientation);
+    cinempc::RPY<double> rpy_drone_now = cinempc::quatToRPY<double>(drone_pose.orientation);
+
+    roll_vector.insert(roll_vector.begin() + index_mpc, rpy.roll);
     yaw_vector.insert(yaw_vector.begin() + index_mpc, rpy.yaw);
     pitch_vector.insert(pitch_vector.begin() + index_mpc, rpy.pitch);
 
     geometry_msgs::Point path_point(world_T_result.position);
     pathMPC.push_back(path_point);
 
-    // std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl;
+    //    std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl <<
+    //    std::endl;
+    std::cout << "roll_drone:" << rpy_drone.roll << std::endl;
+    std::cout << "pitch_drone:" << rpy_drone.pitch << std::endl;
+    std::cout << "yaw_drone:" << rpy_drone.yaw << std::endl << std::endl;
+
+    std::cout << "roll_w:" << rpy.roll << std::endl;
+    std::cout << "pitch_w:" << rpy.pitch << std::endl;
+    std::cout << "yaw_w:" << rpy.yaw << std::endl << std::endl;
+
+    std::cout << "roll_drone_now:" << rpy_drone_now.roll << std::endl;
+    std::cout << "pitch_drone_now:" << rpy_drone_now.pitch << std::endl;
+    std::cout << "yaw_drone_now:" << rpy_drone_now.yaw << std::endl << std::endl;
 
     if (index_mpc == 1)
     {
@@ -393,11 +409,12 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   }
   for (double focal_l : yaw_vector)
   {
-    // std::cout << "yaw:" << focal_l << std::endl;
+    std::cout << "yaw:" << focal_l << std::endl;
   }
   focal_length_spline.set_points(times_vector, focal_length_vector);
   focus_distance_spline.set_points(times_vector, focus_distance_vector);
   aperture_spline.set_points(times_vector, aperture_vector);
+  roll_spline.set_points(times_vector, roll_vector);
   yaw_spline.set_points(times_vector, yaw_vector);
   pitch_spline.set_points(times_vector, pitch_vector);
 
@@ -465,7 +482,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       }
       else
       {
-        if (sequence == 1 || sequence == 2)
+        if (sequence == 1)
         {
           target_state_mpc.poses_down.push_back(target_state_perception.pose_hips);
         }
@@ -670,6 +687,7 @@ int main(int argc, char** argv)
 
       fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
 
+      double roll_gimbal = roll_spline(interval * index_splines);
       double yaw_gimbal = yaw_spline(interval * index_splines);
       double pitch_gimbal = pitch_spline(interval * index_splines);
       geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);

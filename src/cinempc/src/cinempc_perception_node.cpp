@@ -141,31 +141,34 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 
 int main(int argc, char** argv)
 {
-  ros::init(argc, argv, "cinempc_perception");
-
-  const std::string config_file = "/home/pablo/Downloads/darknet/cfg/yolov4.cfg";
-  const std::string weights_file = "/home/pablo/Downloads/darknet/yolov4.weights";
-  const std::string names_file = "/home/pablo/Downloads/darknet/cfg/coco.names";
-
-  darkhelp.init(config_file, weights_file, names_file);
-  darkhelp.config.threshold = 0.4;
-  darkhelp.config.include_all_names = true;
-  darkhelp.config.names_include_percentage = true;
-  darkhelp.config.annotation_include_duration = false;
-  darkhelp.config.annotation_include_timestamp = false;
-  darkhelp.config.sort_predictions = DarkHelp::ESort::kDescending;
-
-  ros::NodeHandle n;
-
-  ros::Subscriber image_received_sub = n.subscribe("/cinempc/perception_in", 1000, newImageReceivedCallback);
-
-  for (int i = 0; i < targets_names.size(); i++)
+  if (use_perception)
   {
-    perception_result_publishers.push_back(n.advertise<cinempc::PersonStatePerception>(
-        "/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
-  }
+    ros::init(argc, argv, "cinempc_perception");
 
-  ros::spin();
+    const std::string config_file = "/home/pablo/Downloads/darknet/cfg/yolov4.cfg";
+    const std::string weights_file = "/home/pablo/Downloads/darknet/yolov4.weights";
+    const std::string names_file = "/home/pablo/Downloads/darknet/cfg/coco.names";
+
+    darkhelp.init(config_file, weights_file, names_file);
+    darkhelp.config.threshold = 0.4;
+    darkhelp.config.include_all_names = true;
+    darkhelp.config.names_include_percentage = true;
+    darkhelp.config.annotation_include_duration = false;
+    darkhelp.config.annotation_include_timestamp = false;
+    darkhelp.config.sort_predictions = DarkHelp::ESort::kDescending;
+
+    ros::NodeHandle n;
+
+    ros::Subscriber image_received_sub = n.subscribe("/cinempc/perception_in", 1000, newImageReceivedCallback);
+
+    for (int i = 0; i < targets_names.size(); i++)
+    {
+      perception_result_publishers.push_back(n.advertise<cinempc::PersonStatePerception>(
+          "/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
+    }
+
+    ros::spin();
+  }
 
   return 0;
 }
