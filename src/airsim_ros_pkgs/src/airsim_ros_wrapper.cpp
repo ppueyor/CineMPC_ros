@@ -432,7 +432,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
   }
 
   // targets state
-  string targets[] = { "Person1", "Person2" };
+  string targets[] = { "ThiefCar", "PoliceCar" };
   for (const string target : targets)
   {
     std::unique_ptr<TargetROS> target_ros = nullptr;

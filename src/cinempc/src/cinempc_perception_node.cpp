@@ -71,7 +71,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   {
     for (DarkHelp::PredictionResult result_vector : results)
     {
-      if (result_vector.name.find("person") != std::string::npos && result_vector.best_probability > 0.80)
+      if (result_vector.name.find("car") != std::string::npos && result_vector.best_probability > 0.80)
       {
         result = result_vector;
         personsFound++;

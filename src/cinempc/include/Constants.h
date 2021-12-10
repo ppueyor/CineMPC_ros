@@ -6,6 +6,9 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 // position of the subject to record
 // rotations
+
+const double target_height = 1.6, target_width = 4.4;
+
 const bool static_target = true, use_perception = false, drone_moving = true;
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
@@ -24,7 +27,7 @@ const double camera_adjustement_m =
 // bounding box
 const double bounding_heigth = 180, bounding_width = 160;
 
-std::vector<std::string> targets_names = { "Person1" };
+std::vector<std::string> targets_names = { "ThiefCar", "PoliceCar" };
 
 // desired image/bounding box pixels
 const double desired_y_pixels_up = 100;

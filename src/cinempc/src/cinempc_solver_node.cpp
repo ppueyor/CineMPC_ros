@@ -11,7 +11,7 @@ using namespace Eigen;
 using namespace std;
 // Set the timestep length and duration
 
-std::vector<cinempc::PersonStateMPC> target_states;
+std::vector<cinempc::TargetState> target_states;
 
 struct Pixel_MPC
 {
@@ -270,13 +270,14 @@ public:
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
 		// calculate relative distances
-		AD<double> relative_x_target = target_states.at(j).poses_up.at(t).position.x - (vars[x_start + t]);
-		AD<double> relative_y_target = target_states.at(j).poses_up.at(t).position.y - (vars[y_start + t]);
-		AD<double> relative_z_up_target = target_states.at(j).poses_up.at(t).position.z - (vars[z_start + t]);
-		AD<double> relative_z_down_target = target_states.at(j).poses_down.at(t).position.z - (vars[z_start + t]);
+		AD<double> relative_x_target = target_states.at(j).pose_top.position.x - (vars[x_start + t]);
+		AD<double> relative_y_target = target_states.at(j).pose_top.position.y - (vars[y_start + t]);
+		AD<double> relative_z_up_target = target_states.at(j).pose_top.position.z - (vars[z_start + t]);
+		AD<double> relative_z_center_target = target_states.at(j).pose_center.position.z - (vars[z_start + t]);
+		AD<double> relative_z_down_target = target_states.at(j).pose_bottom.position.z - (vars[z_start + t]);
 
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
-			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).poses_up.at(t).orientation);
+			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).pose_top.orientation);
 
 		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPYtoRMatrix<AD<double>>(
 			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
@@ -294,21 +295,29 @@ public:
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{
 		  AD<double> cost_pixel_u_target =
-			  CppAD::pow(current_pixel_u_target - constraints.targets_im_up_star.at(j).x, 2);
+			  CppAD::pow(current_pixel_u_target - constraints.targets_im_top_star.at(j).x, 2);
+		  CppAD::pow(current_pixel_u_target - constraints.targets_im_top_star.at(j).x, 2);
 		  Jim += constraints.weights.w_img_targets.at(j).x * cost_pixel_u_target;
 		}
-		if (constraints.weights.w_img_targets.at(j).y > 0)
+		if (constraints.weights.w_img_targets.at(j).y_top > 0)
 		{
 		  AD<double> cost_pixel_v_target_up =
-			  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_up_star.at(j).y, 2);
-		  Jim += constraints.weights.w_img_targets.at(j).y * cost_pixel_v_target_up;
+			  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_top_star.at(j).y, 2);
+		  Jim += constraints.weights.w_img_targets.at(j).y_top * cost_pixel_v_target_up;
 		}
 
-		if (constraints.weights.w_img_targets.at(j).z > 0)
+		if (constraints.weights.w_img_targets.at(j).y_center > 0)
+		{
+		  AD<double> cost_pixel_v_target_center =
+			  CppAD::pow(cost_pixel_v_target_center - constraints.targets_im_center_star.at(j).y, 2);
+		  Jim += constraints.weights.w_img_targets.at(j).y_center * cost_pixel_v_target_center;
+		}
+
+		if (constraints.weights.w_img_targets.at(j).y_bottom > 0)
 		{
 		  AD<double> cost_pixel_v_target_down =
-			  CppAD::pow(current_pixel_v_target_down - constraints.targets_im_down_star.at(j).y, 2);
-		  Jim += constraints.weights.w_img_targets.at(j).z * cost_pixel_v_target_down;
+			  CppAD::pow(current_pixel_v_target_down - constraints.targets_im_bottom_star.at(j).y, 2);
+		  Jim += constraints.weights.w_img_targets.at(j).y_bottom * cost_pixel_v_target_down;
 		}
 
 		// Cost_P
@@ -393,11 +402,11 @@ public:
 		  std::cout << "Jim " << std::endl
 					<< "--------- " << std::endl
 					<< "   current_pixel_u_boy:  " << current_pixel_u_target << std::endl
-					<< "   current_pixel_u_boy_desired:  " << constraints.targets_im_up_star.at(j).x << std::endl
+					<< "   current_pixel_u_boy_desired:  " << constraints.targets_im_top_star.at(j).x << std::endl
 					<< "   current_pixel_v_up_boy:  " << current_pixel_v_target_up << std::endl
-					<< "   current_pixel_v_boy_up_desired:  " << constraints.targets_im_up_star.at(j).y << std::endl
+					<< "   current_pixel_v_boy_up_desired:  " << constraints.targets_im_top_star.at(j).y << std::endl
 					<< "   current_pixel_v_down_boy:  " << current_pixel_v_target_down << std::endl
-					<< "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_down_star.at(j).y
+					<< "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_bottom_star.at(j).y
 					<< std::endl;
 
 		  std::cout << "JFoc " << std::endl
@@ -494,9 +503,9 @@ public:
 	  AD<double> vel_z1 = vars[vel_z_start + t];
 
 	  fg[t] = cinempc::calculateDistanceTo3DPoint<AD<double>>(
-		  x1, y1, z1, target_states.at(closest_target_index).poses_up.at(t).position.x,
-		  target_states.at(closest_target_index).poses_up.at(t).position.y,
-		  target_states.at(closest_target_index).poses_up.at(t).position.z);
+		  x1, y1, z1, target_states.at(closest_target_index).pose_top.position.x,
+		  target_states.at(closest_target_index).pose_top.position.y,
+		  target_states.at(closest_target_index).pose_top.position.z);
 
 	  // Setup the rest of the model constraints
 	  fg[MPC_N + x_start + t] = x1 - (x0 + vel_x0 * dt);

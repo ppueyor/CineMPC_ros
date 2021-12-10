@@ -43,10 +43,13 @@ add_message_files(
   FILES
   MPCIncomingState.msg
   DroneAndCameraState.msg
-  PerceptionMsg.msg
+  WeightsTargets.msg
+  PerceptionMsg.msg  
   PersonStatePerception.msg
+  TargetState.msg
   MPCResult.msg
   PersonStateMPC.msg
+  TargetStateMPC.msg
   Constraints.msg
   Weights.msg
 )

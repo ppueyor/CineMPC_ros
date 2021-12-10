@@ -20,11 +20,11 @@ int main(int argc, char **argv)
 
 	if (delayed_time.sec > 15)
 	{
-	  current_sequence = 3;
+	  current_sequence = 1;
 	}
 	else if (delayed_time.sec > 5)
 	{
-	  current_sequence = 2;
+	  current_sequence = 1;
 	}
 	else
 	{
