@@ -640,7 +640,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  else
 	  {
 		lowerbound = -0.5;	// y_lowest;
-		upperbound = msg->floor_pos - 0.8;
+		upperbound = msg->floor_pos;
 	  }
 	}
 

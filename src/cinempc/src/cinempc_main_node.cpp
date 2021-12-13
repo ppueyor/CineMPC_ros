@@ -9,6 +9,7 @@ std::vector<cinempc::TargetState> relative_targets_states_perception, world_targ
     relative_targets_states_gt, world_targets_states_gt;
 string errors;
 
+float vel_x, vel_y, vel_z;
 float focal_length = 35, focus_distance = 10000, aperture = 20;
 
 int index_splines = 0;
@@ -354,8 +355,9 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     geometry_msgs::Point path_point(world_T_result.position);
     pathMPC.push_back(path_point);
 
-    //    std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << std::endl <<
-    //    std::endl;
+    std::cout << "Point:" << path_point.x << "  " << path_point.y << "   " << path_point.z << "   "
+              << -drone_pose.position.z << std::endl
+              << std::endl;
     std::cout << "roll_drone:" << rpy_drone.roll << std::endl;
     std::cout << "pitch_drone:" << rpy_drone.pitch << std::endl;
     std::cout << "yaw_drone:" << rpy_drone.yaw << std::endl << std::endl;
@@ -372,6 +374,9 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     {
       focal_length_next_state = cine_mpc_result.intrinsics.focal_length;
       drone_pose_next_state = world_T_result;
+      vel_x = cine_mpc_result.velocity.x;
+      vel_y = cine_mpc_result.velocity.y;
+      vel_z = cine_mpc_result.velocity.z;
     }
 
     geometry_msgs::Pose dTvel;
@@ -443,6 +448,10 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
   msg_mpc_in.drone_state.drone_pose.position.x = 0;  // drone_pose.position.x;
   msg_mpc_in.drone_state.drone_pose.position.y = 0;  // drone_pose.position.y;
   msg_mpc_in.drone_state.drone_pose.position.z = 0;  // drone_pose.position.z;
+
+  msg_mpc_in.drone_state.velocity.x = vel_x;  // drone_pose.position.x;
+  msg_mpc_in.drone_state.velocity.y = vel_y;  // drone_pose.position.x;
+  msg_mpc_in.drone_state.velocity.z = vel_z;  // drone_pose.position.x;
 
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, 0);
   msg_mpc_in.drone_state.drone_pose.orientation = q;  // drone_pose.orientation;

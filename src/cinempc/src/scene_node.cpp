@@ -13,7 +13,7 @@ float sequence = 1;
 double move_person_step_dt = 10;
 std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step, yaw_target;
 
-geometry_msgs::PoseStamped initial_state;
+geometry_msgs::PoseStamped initial_state_target_1, initial_state_target_2;
 
 void changeSeqCallback(const std_msgs::Float32::ConstPtr &msg)
 {
@@ -74,8 +74,12 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 
   boost::shared_ptr<geometry_msgs::PoseStamped const> initial_state_ptr =
-	  ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/Person1/get_pose");
-  initial_state = *initial_state_ptr;
+	  ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/ThiefCar/get_pose");
+  initial_state_target_1 = *initial_state_ptr;
+
+  boost::shared_ptr<geometry_msgs::PoseStamped const> initial_state_ptr_2 =
+	  ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/PoliceCar/get_pose");
+  initial_state_target_2 = *initial_state_ptr_2;
 
   std::vector<ros::ServiceServer> mpc_n_target_steps_service;
   for (int i = 0; i < targets_names.size(); i++)
@@ -89,7 +93,8 @@ int main(int argc, char **argv)
 	yaw_target.push_back(0);
   }
 
-  ros::Publisher move_person_pub = n.advertise<geometry_msgs::Pose>("airsim_node/Person1/set_pose", 1000);
+  ros::Publisher move_target_1_pub = n.advertise<geometry_msgs::Pose>("airsim_node/ThiefCar/set_pose", 1000);
+  ros::Publisher move_target_2_pub = n.advertise<geometry_msgs::Pose>("airsim_node/PoliceCar/set_pose", 1000);
 
   ros::Subscriber change_sequence_sub = n.subscribe("cinempc/sequence", 1000, changeSeqCallback);
 
@@ -99,9 +104,9 @@ int main(int argc, char **argv)
   {
 	if (sequence == 1 || sequence == 2)
 	{
-	  move_target_x_per_step.at(0) = 0;	 // 0.005;	 // - camera_adjustement;
-	  move_target_y_per_step.at(0) = 0;	 // 0.015;
-	  move_target_z_per_step.at(0) = 0;	 //-0.005;
+	  move_target_x_per_step.at(0) = 0;	   // 0.005;	 // - camera_adjustement;
+	  move_target_y_per_step.at(0) = 0.1;  // 0.015;
+	  move_target_z_per_step.at(0) = 0;	   //-0.005;
 	}
 	else if (sequence == 2.5 || sequence == 3)
 	{
@@ -114,11 +119,13 @@ int main(int argc, char **argv)
 	  }
 	}
 
-	initial_state.pose.position.x = initial_state.pose.position.x + move_target_x_per_step.at(0);
+	initial_state_target_1.pose.position.x = initial_state_target_1.pose.position.x + move_target_x_per_step.at(0);
+	initial_state_target_1.pose.position.y = initial_state_target_1.pose.position.y + move_target_y_per_step.at(0);
+	initial_state_target_1.pose.position.z = initial_state_target_1.pose.position.z + move_target_z_per_step.at(0);
 
-	initial_state.pose.position.y = initial_state.pose.position.y + move_target_y_per_step.at(0);
-
-	initial_state.pose.position.z = initial_state.pose.position.z + move_target_z_per_step.at(0);
+	initial_state_target_2.pose.position.x = initial_state_target_2.pose.position.x + move_target_x_per_step.at(0);
+	initial_state_target_2.pose.position.y = initial_state_target_2.pose.position.y + move_target_y_per_step.at(0);
+	initial_state_target_2.pose.position.z = initial_state_target_2.pose.position.z + move_target_z_per_step.at(0);
 
 	tf2::Quaternion quaternion_tf;
 	quaternion_tf.setRPY(0, 0, yaw_target.at(0));
@@ -126,9 +133,11 @@ int main(int argc, char **argv)
 
 	geometry_msgs::Quaternion quat_msg = tf2::toMsg(quaternion_tf);
 
-	initial_state.pose.orientation = quat_msg;
+	initial_state_target_1.pose.orientation = quat_msg;
+	initial_state_target_2.pose.orientation = quat_msg;
 
-	move_person_pub.publish(initial_state.pose);
+	move_target_1_pub.publish(initial_state_target_1.pose);
+	move_target_2_pub.publish(initial_state_target_2.pose);
 
 	ros::spinOnce();
 
