@@ -186,9 +186,9 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   pose_bottom.position.z = target_z_bottom;
   pose_bottom.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
-  relative_pose_top = cinempc::calculate_relative_pose_drone_person<double>(pose_top, drone_pose);
-  relative_pose_center = cinempc::calculate_relative_pose_drone_person<double>(pose_center, drone_pose);
-  relative_pose_bottom = cinempc::calculate_relative_pose_drone_person<double>(pose_bottom, drone_pose);
+  relative_pose_top = cinempc::calculate_relative_pose_drone_person<double>(pose_top, drone_pose_next_state);
+  relative_pose_center = cinempc::calculate_relative_pose_drone_person<double>(pose_center, drone_pose_next_state);
+  relative_pose_bottom = cinempc::calculate_relative_pose_drone_person<double>(pose_bottom, drone_pose_next_state);
 
   relative_targets_states_gt.at(i).pose_top = relative_pose_top;
   relative_targets_states_gt.at(i).pose_center = relative_pose_center;
@@ -457,7 +457,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, 0);
   msg_mpc_in.drone_state.drone_pose.orientation = q;  // drone_pose.orientation;
-  msg_mpc_in.floor_pos = -drone_pose.position.z;
+  msg_mpc_in.floor_pos = -drone_pose_next_state.position.z;
   msg_mpc_in.drone_state.intrinsics = getInstrinscsMsg(focal_length_next_state, focus_distance, aperture);
 
   for (int i = 0; i < targets_names.size(); i++)
