@@ -266,6 +266,7 @@ public:
 		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
 		JFoc += constraints.weights.w_focal * cost_foc;
 	  }
+
 	  fg[0] += JDoF + JFoc;	 // one time /camera
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
@@ -275,6 +276,9 @@ public:
 		AD<double> relative_z_up_target = target_states.at(j).pose_top.position.z - (vars[z_start + t]);
 		AD<double> relative_z_center_target = target_states.at(j).pose_center.position.z - (vars[z_start + t]);
 		AD<double> relative_z_down_target = target_states.at(j).pose_bottom.position.z - (vars[z_start + t]);
+
+		AD<double> cost_z = CppAD::pow(vars[z_start + t] - 0, 2);
+		Jp += 1000 * cost_z;
 
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
 			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).pose_top.orientation);

@@ -20,7 +20,7 @@ int main(int argc, char **argv)
 
 	if (delayed_time.sec > 40)
 	{
-	  current_sequence = 3;
+	  current_sequence = 2;
 	}
 	else if (delayed_time.sec > 15)
 	{
