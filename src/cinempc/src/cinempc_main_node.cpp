@@ -167,22 +167,22 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   float target_y_bottom = msg->pose.position.y;
   float target_z_bottom = msg->pose.position.z;
 
-  float target_z_center = target_z_bottom - target_height + 0.2;
+  float target_z_center = target_z_bottom - target_height + 0.5;
   float target_z_top = target_z_bottom - target_height;
 
   // world
   pose_top.position.x = target_x_bottom;
-  pose_top.position.y = target_y_bottom + target_width / 2;
+  pose_top.position.y = target_y_bottom;  // + target_width / 2;
   pose_top.position.z = target_z_top;
   pose_top.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
   pose_center.position.x = target_x_bottom;
-  pose_center.position.y = target_y_bottom + target_width / 2;
+  pose_center.position.y = target_y_bottom;  // + target_width / 2;
   pose_center.position.z = target_z_center;
   pose_center.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
   pose_bottom.position.x = target_x_bottom;
-  pose_bottom.position.y = target_y_bottom + target_width / 2;
+  pose_bottom.position.y = target_y_bottom;  // + target_width / 2;
   pose_bottom.position.z = target_z_bottom;
   pose_bottom.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
@@ -195,6 +195,8 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   relative_targets_states_gt.at(i).pose_bottom = relative_pose_bottom;
 
   world_targets_states_gt.at(i).pose_top = pose_top;
+
+  // std::cout << "z>:" << target_z_top << "  " << target_z_bottom << "   " << target_z_center << "   " << std::endl;
 }
 
 void readTargetStatePerceptionCallback(const cinempc::TargetState::ConstPtr& msg, int target_index)

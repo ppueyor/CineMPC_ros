@@ -289,9 +289,14 @@ public:
 		Pixel_MPC pixel_down_target = readPixel(vars[focal_length_start + t], relative_x_target, relative_y_target,
 												relative_z_down_target, new_drone_R);
 
+		Pixel_MPC pixel_center_target = readPixel(vars[focal_length_start + t], relative_x_target, relative_y_target,
+												  relative_z_center_target, new_drone_R);
+
 		AD<double> current_pixel_u_target = pixel_up_target.x;
 		AD<double> current_pixel_v_target_up = pixel_up_target.y;
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
+		AD<double> current_pixel_v_target_center = pixel_center_target.y;
+
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{
 		  AD<double> cost_pixel_u_target =
@@ -309,7 +314,7 @@ public:
 		if (constraints.weights.w_img_targets.at(j).y_center > 0)
 		{
 		  AD<double> cost_pixel_v_target_center =
-			  CppAD::pow(cost_pixel_v_target_center - constraints.targets_im_center_star.at(j).y, 2);
+			  CppAD::pow(current_pixel_v_target_center - constraints.targets_im_center_star.at(j).y, 2);
 		  Jim += constraints.weights.w_img_targets.at(j).y_center * cost_pixel_v_target_center;
 		}
 
@@ -327,6 +332,11 @@ public:
 		{
 		  minimum_distance_2D_target = distance_2D_target;
 		  closest_target_index = j;
+		  std::cout << "minimum " << std::endl
+					<< "--------- " << std::endl
+					<< "   current_pixel_u_boy:  " << minimum_distance_2D_target << std::endl
+					<< "   current_pixel_u_boy_desired:  " << closest_target_index << std::endl
+					<< std::endl;
 		}
 
 		if (constraints.weights.w_d_targets.at(j) > 0)
@@ -407,6 +417,9 @@ public:
 					<< "   current_pixel_v_boy_up_desired:  " << constraints.targets_im_top_star.at(j).y << std::endl
 					<< "   current_pixel_v_down_boy:  " << current_pixel_v_target_down << std::endl
 					<< "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_bottom_star.at(j).y
+					<< std::endl
+					<< "   current_pixel_v_center_boy:  " << current_pixel_v_target_center << std::endl
+					<< "   current_pixel_v_boy_center_desired:  " << constraints.targets_im_center_star.at(j).y
 					<< std::endl;
 
 		  std::cout << "JFoc " << std::endl
@@ -502,10 +515,14 @@ public:
 	  AD<double> vel_y1 = vars[vel_y_start + t];
 	  AD<double> vel_z1 = vars[vel_z_start + t];
 
-	  fg[t] = cinempc::calculateDistanceTo3DPoint<AD<double>>(
-		  x1, y1, z1, target_states.at(closest_target_index).pose_top.position.x,
-		  target_states.at(closest_target_index).pose_top.position.y,
-		  target_states.at(closest_target_index).pose_top.position.z);
+	  //   fg[t] = cinempc::calculateDistanceTo3DPoint<AD<double>>(
+	  // 	  x1, y1, z1, target_states.at(closest_target_index).pose_top.position.x,
+	  // 	  target_states.at(closest_target_index).pose_top.position.y,
+	  // 	  target_states.at(closest_target_index).pose_top.position.z);
+
+	  fg[t] = cinempc::calculateDistanceTo2DPoint<AD<double>>(
+		  x1, y1, target_states.at(closest_target_index).pose_top.position.x,
+		  target_states.at(closest_target_index).pose_top.position.y);
 
 	  // Setup the rest of the model constraints
 	  fg[MPC_N + x_start + t] = x1 - (x0 + vel_x0 * dt);
@@ -640,7 +657,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  else
 	  {
 		lowerbound = -0.5;	// y_lowest;
-		upperbound = msg->floor_pos;
+		upperbound = msg->floor_pos + 0.3;
 	  }
 	}
 
@@ -793,7 +810,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   for (int i = 0; i < MPC_N - 1; i++)
   {
 	constraints_lowerbound[i] = 3;
-	constraints_upperbound[i] = 1000;
+	constraints_upperbound[i] = 100000;
   }
 
   // initial state

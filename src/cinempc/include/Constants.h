@@ -7,14 +7,11 @@ const double PI = 3.14159265358979323846;  //(mm)
 // position of the subject to record
 // rotations
 
-const double target_height = 2, target_width = 0.5;
+const double target_height = 1.82, target_width = 0.5;
 
-const bool static_target = true, use_perception = false, drone_moving = true;
+const bool static_target = true, use_perception = false, drone_moving = true, use_cineMPC = true;
+;
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
-
-const bool use_cineMPC = true;
-const int secs_first_constraints = 31;
-const int secs_third_constraints = 57;
 
 // constant values. Size of the sensor in mm and px
 const double sensor_height_mm = 13.365, sensor_width_mm = 23.76;  //(mm) Filmback, Digital Film 16:9
@@ -28,14 +25,6 @@ const double camera_adjustement_m =
 const double bounding_heigth = 180, bounding_width = 160;
 
 std::vector<std::string> targets_names = { "Person1" };
-
-// desired image/bounding box pixels
-const double desired_y_pixels_up = 100;
-const double desired_y_pixels_down = 230;
-const double desired_y_pixels_center = picture_height_px / 2;
-const double desired_x_pixels_left = 400;
-const double desired_x_pixels_center = picture_width_px / 2;
-const double desired_x_pixels_right = 560;
 
 const double image_x_third_left = picture_width_px / 3;
 const double image_x_third_right = 2 * picture_width_px / 3;
@@ -64,7 +53,7 @@ const double z_lowest = min_value, z_highest = 50;
 const double foc_lowest = 20, foc_highest = 600;
 const double aperture_lowest = 1.2, aperture_highest = 22;
 
-const double velos = 7;
+const double velos = 5;
 const double vel_x_lowest = -velos, vel_x_highest = velos;
 const double vel_y_lowest = -velos, vel_y_highest = velos;
 const double vel_z_lowest = -velos, vel_z_highest = velos;
@@ -77,7 +66,7 @@ const double vel_ang_z_lowest = -vel_ang, vel_ang_z_highest = vel_ang;
 const double vel_foc_lowest = min_value, vel_foc_highest = 40;
 const double vel_aperture_lowest = min_value, vel_aperture_highest = max_value;
 
-const double accel = 5;
+const double accel = 2;
 const double a_x_lowest = -accel, a_x_highest = accel;
 const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;
