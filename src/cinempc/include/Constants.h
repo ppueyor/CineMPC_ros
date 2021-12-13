@@ -7,7 +7,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 // position of the subject to record
 // rotations
 
-const double target_height = 1.6, target_width = 4.4;
+const double target_height = 2, target_width = 0.5;
 
 const bool static_target = true, use_perception = false, drone_moving = true;
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
@@ -27,7 +27,7 @@ const double camera_adjustement_m =
 // bounding box
 const double bounding_heigth = 180, bounding_width = 160;
 
-std::vector<std::string> targets_names = { "ThiefCar", "PoliceCar" };
+std::vector<std::string> targets_names = { "Person1" };
 
 // desired image/bounding box pixels
 const double desired_y_pixels_up = 100;
@@ -44,8 +44,6 @@ const double image_x_center = picture_width_px / 2;
 const double image_y_third_down = 2 * picture_height_px / 3;
 const double image_y_third_up = picture_height_px / 3;
 const double image_y_center = picture_height_px / 2;
-
-const double desired_distance = 5;  // meters
 
 const double desired_x_near_distance_acceptable_initial = 30;  // meters
 const double desired_far_distance_acceptable = 59.92;          // meters

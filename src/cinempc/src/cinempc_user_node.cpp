@@ -77,22 +77,14 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
                                                                 req.targets_relative.at(0).pose_top.position.y, 0, 0));
     c.weights.w_df = 0;
 
-    c.targets_im_top_star.at(0).x = image_x_third_right;
-    c.weights.w_img_targets.at(0).x = 1;               // 10;                      // 1;                       // 1 * 1;
+    c.targets_im_top_star.at(0).x = image_x_center;
+    c.weights.w_img_targets.at(0).x = 10;              // 10;                      // 1;                       // 1 * 1;
     c.targets_im_top_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_top = 1;           // 10;                      // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).y_top = 10;          // 10;                      // 1;                       // 1 * 1;
     c.targets_im_bottom_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_bottom = 1;             // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).y_bottom = 0;             // 1;                       // 1 * 1;
+    c.targets_im_center_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
     c.weights.w_img_targets.at(0).y_center = 0;             // 1;                       // 1 * 1;
-
-    c.targets_im_top_star.at(1).x = image_x_third_left;
-    c.weights.w_img_targets.at(1).x = 0;               // 10;                      // 1;                       // 1 * 1;
-    c.targets_im_top_star.at(1).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(1).y_top = 0;           // 10;                      // 1;                       // 1 * 1;
-    c.targets_im_bottom_star.at(1).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(1).y_bottom = 0;             // 1;                       // 1 * 1;
-    c.targets_im_center_star.at(1).y = image_y_center;      // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(1).y_center = 0;             // 1;                       // 1 * 1;
 
     // c.targets_im_top_star.at(1).x = -1;
     // c.weights.w_img_targets.at(1).x = 0;
@@ -115,7 +107,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
     geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
     c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 10000;
+    c.weights.w_R_targets.at(0) = 0;
 
     c.focal_star = 35;
     c.weights.w_focal = 0;

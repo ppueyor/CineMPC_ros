@@ -167,7 +167,7 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   float target_y_bottom = msg->pose.position.y;
   float target_z_bottom = msg->pose.position.z;
 
-  float target_z_center = target_z_bottom - target_height / 2;
+  float target_z_center = target_z_bottom - target_height + 0.2;
   float target_z_top = target_z_bottom - target_height;
 
   // world
