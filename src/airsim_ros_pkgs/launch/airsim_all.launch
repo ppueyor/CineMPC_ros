@@ -4,6 +4,7 @@
 	<include file="$(find airsim_ros_pkgs)/launch/airsim_node.launch"/>
 <!-- Vehicle Dynamic Constraints -->
 	<include file="$(find airsim_ros_pkgs)/launch/dynamic_constraints.launch"/>
+<!--	<include file="$(find cinempc)/launch/cine_mpc_all.launch"/> -->
 <!-- Simple PID Position Controller -->
 	<!--<include file="$(find airsim_ros_pkgs)/launch/position_controller_simple.launch"/>-->
 </launch>

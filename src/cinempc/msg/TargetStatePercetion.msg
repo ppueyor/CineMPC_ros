@@ -1,0 +1,4 @@
+string target_name
+geometry_msgs/Pose pose_top
+geometry_msgs/Pose pose_center
+geometry_msgs/Pose pose_bottom

@@ -71,7 +71,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   {
     for (DarkHelp::PredictionResult result_vector : results)
     {
-      if (result_vector.name.find("car") != std::string::npos && result_vector.best_probability > 0.80)
+      if (result_vector.name.find("person") != std::string::npos && result_vector.best_probability > 0.80)
       {
         result = result_vector;
         personsFound++;
@@ -103,31 +103,8 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
         msg.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
         msg.drone_state.drone_pose.orientation, wRt);
 
-    geometry_msgs::Pose drone_pose_head = drone_pose_top;
-    drone_pose_head.position.z = drone_pose_head.position.z + 0.2;
-
-    // we calculate the position of the head and then the rest of the body
-    geometry_msgs::Pose head_pose_hips;
-    head_pose_hips.orientation = cinempc::RPYToQuat<double>(0, 0, 0);
-    head_pose_hips.position.z = 0;
-    head_pose_hips.position.z = 0;
-    head_pose_hips.position.z = 0.7;
-
-    geometry_msgs::Pose head_pose_feet;
-    head_pose_feet.orientation = cinempc::RPYToQuat<double>(0, 0, 0);
-    head_pose_feet.position.z = 0;
-    head_pose_feet.position.z = 0;
-    head_pose_feet.position.z = 1.66;
-
-    geometry_msgs::Pose drone_pose_hips =
-        cinempc::calculate_relative_poses_drone_targets<double>(drone_pose_head, head_pose_hips);
-    geometry_msgs::Pose drone_pose_feet =
-        cinempc::calculate_relative_poses_drone_targets<double>(drone_pose_head, head_pose_feet);
-
-    cinempc::PersonStatePerception person_msg;
-    person_msg.pose_head = drone_pose_head;
-    person_msg.pose_hips = drone_pose_hips;
-    person_msg.pose_feet = drone_pose_feet;
+    cinempc::TargetState person_msg;
+    person_msg.pose_top = drone_pose_top;
 
     // TODO: SAME POSE FOR BOTH TARGETS
     for (int i = 0; i < targets_names.size(); i++)
@@ -163,7 +140,7 @@ int main(int argc, char** argv)
 
     for (int i = 0; i < targets_names.size(); i++)
     {
-      perception_result_publishers.push_back(n.advertise<cinempc::PersonStatePerception>(
+      perception_result_publishers.push_back(n.advertise<cinempc::TargetState>(
           "/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
     }
 

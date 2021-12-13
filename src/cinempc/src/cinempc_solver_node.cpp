@@ -651,30 +651,30 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (drone_moving)
 	  {
-		lowerbound = y_lowest;
-		upperbound = y_highest;
+		lowerbound = -0.5;	// y_lowest;
+		upperbound = msg->floor_pos + 0.3;
 	  }
 	  else
 	  {
-		lowerbound = -0.5;	// y_lowest;
-		upperbound = msg->floor_pos + 0.3;
+		lowerbound = -0.0001;
+		upperbound = 0.0001;
 	  }
 	}
 
 	else if (i >= roll_gimbal_start && i < pitch_gimbal_start)
 	{
-	  lowerbound = -0.5;
-	  upperbound = 0.5;
+	  lowerbound = -0.1;
+	  upperbound = 0.1;
 	}
 	else if (i >= pitch_gimbal_start && i < yaw_gimbal_start)
 	{
-	  lowerbound = -0.5;
-	  upperbound = 0.5;
+	  lowerbound = -0.1;
+	  upperbound = 0.1;
 	}
 	else if (i >= yaw_gimbal_start && i < focus_distance_start)
 	{
-	  lowerbound = -0.5;
-	  upperbound = 0.5;
+	  lowerbound = -0.1;
+	  upperbound = 0.1;
 	}
 	else if (i >= focus_distance_start && i < focal_length_start)
 	{
@@ -755,7 +755,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  if (use_cineMPC)
 	  {
 		lowerbound = -15;
-		upperbound = 15;
+		upperbound = 25;
 	  }
 	  else
 	  {

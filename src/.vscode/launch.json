@@ -1,0 +1,32 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(gdb) Launch",
+            "type": "cppdbg",
+            "request": "launch",
+            //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/move_person_node",
+            "program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_main_node",
+            //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_solver_node",
+            //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_user_node",
+            //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_perception_node",
+            //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/airsim_ros_pkgs/airsim_node",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/airsim_ros_pkgs",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+    ]
+}
