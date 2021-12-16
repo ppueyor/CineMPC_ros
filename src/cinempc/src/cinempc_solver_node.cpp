@@ -813,7 +813,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   // constraints for keeping the distance of security(fg[1-MPC_N])
   for (int i = 0; i < MPC_N - 1; i++)
   {
-	constraints_lowerbound[i] = 3;
+	constraints_lowerbound[i] = 2;
 	constraints_upperbound[i] = 100000;
   }
 
