@@ -22,10 +22,6 @@ int main(int argc, char **argv)
 	{
 	  current_sequence = 2;
 	}
-	else if (delayed_time.sec > 20)
-	{
-	  current_sequence = 2;
-	}
 	else
 	{
 	  current_sequence = 1;

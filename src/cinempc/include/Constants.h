@@ -7,7 +7,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 // position of the subject to record
 // rotations
 
-const double target_height = 1.82, target_width = 0.5;
+const double target_height = 1.62, target_width = 0.5;
 
 const bool static_target = true, use_perception = false, drone_moving = true, use_cineMPC = true;
 ;

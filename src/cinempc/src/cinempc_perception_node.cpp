@@ -5,7 +5,7 @@ using namespace cv;
 using namespace std;
 int i = 0;
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
-float calculateDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
+float calculateAverageDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
 {
   float target_u_center = bounding_box.x + (bounding_box.width / 2);
   float target_v_center = bounding_box.y + (bounding_box.height / 2);
@@ -39,6 +39,28 @@ float calculateDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
   }
   float avg_depth = acc_depth / depths;
   return avg_depth * 100000;
+}
+
+// calculates a median depth the closest pixels of every row
+float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
+{
+  std::vector<float> closest_points_per_row = {};
+  for (int v = bounding_box.y; v < bounding_box.y + bounding_box.height; v++)
+  {
+    float closest_depth_row = depth_cv_ptr->image.at<float>(0, 0);
+    for (int u = bounding_box.x; u < bounding_box.x + bounding_box.width; u++)
+    {
+      float current_depth = depth_cv_ptr->image.at<float>(v, u);
+      if (current_depth < closest_depth_row)
+      {
+        closest_depth_row = current_depth;
+      }
+    }
+    closest_points_per_row.push_back(closest_depth_row);
+  }
+  sort(closest_points_per_row.begin(), closest_points_per_row.end());
+  int median = closest_points_per_row.size() / 2;
+  return closest_points_per_row.at(median);
 }
 
 void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
@@ -96,7 +118,8 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
     int pixel = (target_v_center * msg.rgb.width) + target_u_center;
 
     // float depth_target = calculateDepth(depth_cv_ptr, rect1);  // convert to mms
-    float depth_target = depth_cv_ptr->image.at<float>(target_v_center, target_u_center) * 100000;  // convert to mms
+    // float depth_target = depth_cv_ptr->image.at<float>(target_v_center, target_u_center) * 100000;  // convert to mms
+    float depth_target = calculateMedianDepth(depth_cv_ptr, rect1) * 100000;  // convert to mms
     geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
 
     geometry_msgs::Pose drone_pose_top = cinempc::drone_relative_position_from_image<double>(
@@ -140,8 +163,8 @@ int main(int argc, char** argv)
 
     for (int i = 0; i < targets_names.size(); i++)
     {
-      perception_result_publishers.push_back(n.advertise<cinempc::TargetState>(
-          "/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
+      perception_result_publishers.push_back(
+          n.advertise<cinempc::TargetState>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
     }
 
     ros::spin();

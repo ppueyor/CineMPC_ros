@@ -266,6 +266,11 @@ public:
 		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
 		JFoc += constraints.weights.w_focal * cost_foc;
 	  }
+	  else
+	  {
+		AD<double> cost_foc = CppAD::pow(vars[vel_focal_length_start + t] - 0, 2);
+		JFoc += 10 * cost_foc;
+	  }
 
 	  fg[0] += JDoF + JFoc;	 // one time /camera
 	  for (int j = 0; j < target_states.size(); j++)
@@ -813,7 +818,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   // constraints for keeping the distance of security(fg[1-MPC_N])
   for (int i = 0; i < MPC_N - 1; i++)
   {
-	constraints_lowerbound[i] = 2;
+	constraints_lowerbound[i] = 4;
 	constraints_upperbound[i] = 100000;
   }
 
