@@ -282,9 +282,6 @@ public:
 		AD<double> relative_z_center_target = target_states.at(j).pose_center.position.z - (vars[z_start + t]);
 		AD<double> relative_z_down_target = target_states.at(j).pose_bottom.position.z - (vars[z_start + t]);
 
-		AD<double> cost_z = CppAD::pow(vars[z_start + t] - 0, 2);
-		Jp += 1000 * cost_z;
-
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
 			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).pose_top.orientation);
 
@@ -305,6 +302,12 @@ public:
 		AD<double> current_pixel_v_target_up = pixel_up_target.y;
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
 		AD<double> current_pixel_v_target_center = pixel_center_target.y;
+
+		if (constraints.weights.w_z > 0)
+		{
+		  AD<double> cost_z = CppAD::pow(vars[z_start + t] - 0, 2);
+		  Jp += constraints.weights.w_z * cost_z;
+		}
 
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{

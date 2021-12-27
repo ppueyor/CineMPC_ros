@@ -106,6 +106,8 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
 
     c.focal_star = 40;
     c.weights.w_focal = 0;
+
+    c.weights.w_z = 1000;
   }
   if (sequence == 2)
   {
@@ -145,6 +147,8 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
 
     c.focal_star = 400;
     c.weights.w_focal = 10;
+
+    c.weights.w_z = 1000;
   }
   res.contraints = c;
   return true;
