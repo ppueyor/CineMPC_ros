@@ -9,7 +9,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 const double target_height = 1.62, target_width = 0.5;
 
-const bool static_target = true, use_perception = false, drone_moving = true, use_cineMPC = true;
+const bool static_target = true, use_perception = false, drone_moving = true, use_cineMPC = true, log_costs = false;
 ;
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
@@ -42,7 +42,7 @@ const double desired_relative_yaw = PI;
 const double desired_relative_pitch = 2 * PI / 6;
 
 const int MPC_N = 5;
-const float dt = 0.5;  // sample period MPC
+const float mpc_dt = 0.5;  // sample period MPC
 
 const double min_value = -99999999, max_value = 99999999;
 
@@ -53,12 +53,12 @@ const double z_lowest = min_value, z_highest = 50;
 const double foc_lowest = 20, foc_highest = 600;
 const double aperture_lowest = 1.2, aperture_highest = 22;
 
-const double velos = 3;
+const double velos = 5;
 const double vel_x_lowest = -velos, vel_x_highest = velos;
 const double vel_y_lowest = -velos, vel_y_highest = velos;
 const double vel_z_lowest = -velos, vel_z_highest = velos;
 
-const double vel_ang = 0.3;
+const double vel_ang = 0.1;
 const double vel_ang_x_lowest = -vel_ang, vel_ang_x_highest = vel_ang;
 const double vel_ang_y_lowest = -vel_ang, vel_ang_y_highest = vel_ang;
 const double vel_ang_z_lowest = -vel_ang, vel_ang_z_highest = vel_ang;
@@ -66,7 +66,7 @@ const double vel_ang_z_lowest = -vel_ang, vel_ang_z_highest = vel_ang;
 const double vel_foc_lowest = -10, vel_foc_highest = 40;
 const double vel_aperture_lowest = min_value, vel_aperture_highest = max_value;
 
-const double accel = 1;
+const double accel = 2;
 const double a_x_lowest = -accel, a_x_highest = accel;
 const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;

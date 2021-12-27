@@ -11,133 +11,66 @@
 
 float sequence = 1;
 double move_person_step_dt = 10;
-std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step, yaw_target;
+std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step,
+	yaw_target;	 // for each target
+std::vector<ros::Publisher> move_target_pub_vector;
 
-geometry_msgs::PoseStamped initial_state_target_1, initial_state_target_2;
+std::vector<geometry_msgs::PoseStamped> initial_state_target_vector;
 
 void changeSeqCallback(const std_msgs::Float32::ConstPtr &msg)
 {
   sequence = msg->data;
 }
 
-bool getNStepsTargetService(cinempc::GetNextPersonPoses::Request &req, cinempc::GetNextPersonPoses::Response &res,
-							int index)
-{
-  std::vector<geometry_msgs::Pose> array_of_poses;
-
-  geometry_msgs::Pose initial_pose = req.current_pose;
-  for (int i = 0; i < MPC_N * 2; i++)
-  {
-	geometry_msgs::Pose current_pose;
-	if (i < MPC_N)
-	{
-	  current_pose.position.x =
-		  initial_pose.position.x;	// + move_target_x_per_step.at(index) * move_person_step_dt * i;
-	  current_pose.position.y =
-		  initial_pose.position.y;	// + move_target_y_per_step.at(index) * move_person_step_dt * i;
-	  current_pose.position.z = initial_pose.position.z;
-	}
-	else
-	{
-	  if (sequence == 1 || sequence == 3)
-	  {
-		current_pose.position.x =
-			initial_pose.position.x;  // + move_target_x_per_step.at(index) * move_person_step_dt * (i - MPC_N);
-		current_pose.position.y =
-			initial_pose.position.y;  // + move_target_y_per_step.at(index) * move_person_step_dt * (i - MPC_N);
-		current_pose.position.z = initial_pose.position.z + 0.5;
-	  }
-	  else
-	  {
-		current_pose.position.x =
-			initial_pose.position.x + move_target_x_per_step.at(index) * move_person_step_dt * (i - MPC_N);
-		current_pose.position.y =
-			initial_pose.position.y + move_target_y_per_step.at(index) * move_person_step_dt * (i - MPC_N);
-		current_pose.position.z = initial_pose.position.z + 1.2;
-	  }
-	}
-	current_pose.orientation = initial_pose.orientation;
-	array_of_poses.push_back(current_pose);
-  }
-  res.pose_array.poses = array_of_poses;
-  return true;
-}
-
-tf2::Quaternion get_tf2_quat(const msr::airlib::Quaternionr &airlib_quat)
-{
-  return tf2::Quaternion(airlib_quat.x(), airlib_quat.y(), airlib_quat.z(), airlib_quat.w());
-}
-
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "move_person_node");
+  ros::init(argc, argv, "scene_node");
   ros::NodeHandle n;
-
-  boost::shared_ptr<geometry_msgs::PoseStamped const> initial_state_ptr =
-	  ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/ThiefCar/get_pose");
-  initial_state_target_1 = *initial_state_ptr;
-
-  boost::shared_ptr<geometry_msgs::PoseStamped const> initial_state_ptr_2 =
-	  ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/PoliceCar/get_pose");
-  initial_state_target_2 = *initial_state_ptr_2;
-
-  std::vector<ros::ServiceServer> mpc_n_target_steps_service;
   for (int i = 0; i < targets_names.size(); i++)
   {
-	mpc_n_target_steps_service.push_back(
-		n.advertiseService<cinempc::GetNextPersonPoses::Request, cinempc::GetNextPersonPoses::Response>(
-			"cinempc/" + targets_names.at(i) + "/get_next_poses", boost::bind(&getNStepsTargetService, _1, _2, i)));
+	boost::shared_ptr<geometry_msgs::PoseStamped const> initial_state_ptr =
+		ros::topic::waitForMessage<geometry_msgs::PoseStamped>("airsim_node/" + targets_names.at(i) + "/get_pose");
+	initial_state_target_vector.push_back(*initial_state_ptr);
+
+	move_target_pub_vector.push_back(
+		n.advertise<geometry_msgs::Pose>("airsim_node/" + targets_names.at(i) + "/set_pose", 1000));
+
 	move_target_x_per_step.push_back(0);  // - camera_adjustement;
 	move_target_y_per_step.push_back(0);
 	move_target_z_per_step.push_back(0);
 	yaw_target.push_back(0);
   }
-
-  ros::Publisher move_target_1_pub = n.advertise<geometry_msgs::Pose>("airsim_node/ThiefCar/set_pose", 1000);
-  ros::Publisher move_target_2_pub = n.advertise<geometry_msgs::Pose>("airsim_node/PoliceCar/set_pose", 1000);
-
   ros::Subscriber change_sequence_sub = n.subscribe("cinempc/sequence", 1000, changeSeqCallback);
 
   ros::Rate loop_rate(33);
 
   while (ros::ok())
   {
-	if (sequence == 1 || sequence == 2)
+	// set for every problem
+
+	move_target_x_per_step.at(0) = 0;	  // 0.005;	 // - camera_adjustement;
+	move_target_y_per_step.at(0) = 0.03;  // 0.015;
+	move_target_z_per_step.at(0) = 0;	  //-0.005;
+
+	for (int i = 0; i < targets_names.size(); i++)
 	{
-	  move_target_x_per_step.at(0) = 0;	   // 0.005;	 // - camera_adjustement;
-	  move_target_y_per_step.at(0) = 0.1;  // 0.015;
-	  move_target_z_per_step.at(0) = 0;	   //-0.005;
+	  initial_state_target_vector.at(i).pose.position.x =
+		  initial_state_target_vector.at(i).pose.position.x + move_target_x_per_step.at(i);
+	  initial_state_target_vector.at(i).pose.position.y =
+		  initial_state_target_vector.at(i).pose.position.y + move_target_y_per_step.at(i);
+	  initial_state_target_vector.at(i).pose.position.z =
+		  initial_state_target_vector.at(i).pose.position.z + move_target_z_per_step.at(i);
+
+	  tf2::Quaternion quaternion_tf;
+	  quaternion_tf.setRPY(0, 0, yaw_target.at(0));
+	  quaternion_tf.normalize();
+
+	  geometry_msgs::Quaternion quat_msg = tf2::toMsg(quaternion_tf);
+
+	  initial_state_target_vector.at(i).pose.orientation = quat_msg;
+
+	  move_target_pub_vector.at(i).publish(initial_state_target_vector.at(i).pose);
 	}
-	else if (sequence == 2.5 || sequence == 3)
-	{
-	  move_target_x_per_step.at(0) = 0.02;
-	  move_target_y_per_step.at(0) = 0;
-	  if (yaw_target.at(0) > -M_PI / 2)
-	  {
-		yaw_target.at(0) = yaw_target.at(0) - 0.01;
-		move_target_y_per_step.at(0) = 0.02;
-	  }
-	}
-
-	initial_state_target_1.pose.position.x = initial_state_target_1.pose.position.x + move_target_x_per_step.at(0);
-	initial_state_target_1.pose.position.y = initial_state_target_1.pose.position.y + move_target_y_per_step.at(0);
-	initial_state_target_1.pose.position.z = initial_state_target_1.pose.position.z + move_target_z_per_step.at(0);
-
-	initial_state_target_2.pose.position.x = initial_state_target_2.pose.position.x + move_target_x_per_step.at(0);
-	initial_state_target_2.pose.position.y = initial_state_target_2.pose.position.y + move_target_y_per_step.at(0);
-	initial_state_target_2.pose.position.z = initial_state_target_2.pose.position.z + move_target_z_per_step.at(0);
-
-	tf2::Quaternion quaternion_tf;
-	quaternion_tf.setRPY(0, 0, yaw_target.at(0));
-	quaternion_tf.normalize();
-
-	geometry_msgs::Quaternion quat_msg = tf2::toMsg(quaternion_tf);
-
-	initial_state_target_1.pose.orientation = quat_msg;
-	initial_state_target_2.pose.orientation = quat_msg;
-
-	move_target_1_pub.publish(initial_state_target_1.pose);
-	move_target_2_pub.publish(initial_state_target_2.pose);
 
 	ros::spinOnce();
 

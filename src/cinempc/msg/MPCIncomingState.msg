@@ -1,5 +1,5 @@
 std_msgs/Header header
 cinempc/DroneAndCameraState drone_state
-cinempc/TargetState[] targets
+cinempc/TargetStateMPC[] targets
 float32 floor_pos
 cinempc/Constraints constraints

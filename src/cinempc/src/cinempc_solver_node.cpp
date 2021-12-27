@@ -11,7 +11,7 @@ using namespace Eigen;
 using namespace std;
 // Set the timestep length and duration
 
-std::vector<cinempc::TargetState> target_states;
+std::vector<cinempc::TargetStateMPC> target_states;
 
 struct Pixel_MPC
 {
@@ -266,7 +266,8 @@ public:
 		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
 		JFoc += constraints.weights.w_focal * cost_foc;
 	  }
-	  else
+	  // to try to achieve a static focal distance //dolly
+	  else if (constraints.weights.w_focal < 0)
 	  {
 		AD<double> cost_foc = CppAD::pow(vars[vel_focal_length_start + t] - 0, 2);
 		JFoc += 10 * cost_foc;
@@ -276,14 +277,14 @@ public:
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
 		// calculate relative distances
-		AD<double> relative_x_target = target_states.at(j).pose_top.position.x - (vars[x_start + t]);
-		AD<double> relative_y_target = target_states.at(j).pose_top.position.y - (vars[y_start + t]);
-		AD<double> relative_z_up_target = target_states.at(j).pose_top.position.z - (vars[z_start + t]);
-		AD<double> relative_z_center_target = target_states.at(j).pose_center.position.z - (vars[z_start + t]);
-		AD<double> relative_z_down_target = target_states.at(j).pose_bottom.position.z - (vars[z_start + t]);
+		AD<double> relative_x_target = target_states.at(j).poses_top.at(t).position.x - (vars[x_start + t]);
+		AD<double> relative_y_target = target_states.at(j).poses_top.at(t).position.y - (vars[y_start + t]);
+		AD<double> relative_z_up_target = target_states.at(j).poses_top.at(t).position.z - (vars[z_start + t]);
+		AD<double> relative_z_center_target = target_states.at(j).poses_center.at(t).position.z - (vars[z_start + t]);
+		AD<double> relative_z_down_target = target_states.at(j).poses_bottom.at(t).position.z - (vars[z_start + t]);
 
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
-			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).pose_top.orientation);
+			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).poses_top.at(t).orientation);
 
 		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPYtoRMatrix<AD<double>>(
 			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
@@ -407,54 +408,57 @@ public:
 		  current_Jp = Jp;
 		  current_JDoF = JDoF;
 
-		  std::cout << "Cost:    " << Jp + Jim + JDoF << endl
-					<< "   Jp:  " << Jp << endl
-					<< "   Jim:  " << Jim << endl
-					<< "   JDoF:  " << JDoF << endl
-					<< "   JFoc:  " << JFoc << endl
-					<< std::endl;
+		  if (log_costs)
+		  {
+			std::cout << "Cost:    " << Jp + Jim + JDoF << endl
+					  << "   Jp:  " << Jp << endl
+					  << "   Jim:  " << Jim << endl
+					  << "   JDoF:  " << JDoF << endl
+					  << "   JFoc:  " << JFoc << endl
+					  << std::endl;
 
-		  std::cout << "JDoF " << std::endl
-					<< "--------- " << std::endl
-					<< "   Dn:  " << near_acceptable_distance << std::endl
-					<< "   dn_desired:  " << constraints.dn_star << std::endl
-					<< "   Df:  " << far_acceptable_distance << std::endl
-					<< "   df_desired:  " << constraints.df_star << std::endl;
+			std::cout << "JDoF " << std::endl
+					  << "--------- " << std::endl
+					  << "   Dn:  " << near_acceptable_distance << std::endl
+					  << "   dn_desired:  " << constraints.dn_star << std::endl
+					  << "   Df:  " << far_acceptable_distance << std::endl
+					  << "   df_desired:  " << constraints.df_star << std::endl;
 
-		  std::cout << "Jim " << std::endl
-					<< "--------- " << std::endl
-					<< "   current_pixel_u_boy:  " << current_pixel_u_target << std::endl
-					<< "   current_pixel_u_boy_desired:  " << constraints.targets_im_top_star.at(j).x << std::endl
-					<< "   current_pixel_v_up_boy:  " << current_pixel_v_target_up << std::endl
-					<< "   current_pixel_v_boy_up_desired:  " << constraints.targets_im_top_star.at(j).y << std::endl
-					<< "   current_pixel_v_down_boy:  " << current_pixel_v_target_down << std::endl
-					<< "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_bottom_star.at(j).y
-					<< std::endl
-					<< "   current_pixel_v_center_boy:  " << current_pixel_v_target_center << std::endl
-					<< "   current_pixel_v_boy_center_desired:  " << constraints.targets_im_center_star.at(j).y
-					<< std::endl;
+			std::cout << "Jim " << std::endl
+					  << "--------- " << std::endl
+					  << "   current_pixel_u_boy:  " << current_pixel_u_target << std::endl
+					  << "   current_pixel_u_boy_desired:  " << constraints.targets_im_top_star.at(j).x << std::endl
+					  << "   current_pixel_v_up_boy:  " << current_pixel_v_target_up << std::endl
+					  << "   current_pixel_v_boy_up_desired:  " << constraints.targets_im_top_star.at(j).y << std::endl
+					  << "   current_pixel_v_down_boy:  " << current_pixel_v_target_down << std::endl
+					  << "   current_pixel_v_boy_down_desired:  " << constraints.targets_im_bottom_star.at(j).y
+					  << std::endl
+					  << "   current_pixel_v_center_boy:  " << current_pixel_v_target_center << std::endl
+					  << "   current_pixel_v_boy_center_desired:  " << constraints.targets_im_center_star.at(j).y
+					  << std::endl;
 
-		  std::cout << "JFoc " << std::endl
-					<< "--------- " << std::endl
-					<< "   current_focal:  " << vars[focal_length_start + t] << std::endl
-					<< "   focal_desired:  " << constraints.focal_star << std::endl
-					<< std::endl;
+			std::cout << "JFoc " << std::endl
+					  << "--------- " << std::endl
+					  << "   current_focal:  " << vars[focal_length_start + t] << std::endl
+					  << "   focal_desired:  " << constraints.focal_star << std::endl
+					  << std::endl;
 
-		  std::cout << "Jp " << std::endl
-					<< "--------- " << std::endl
-					<< "   d_boy:  " << distance_2D_target << std::endl
-					<< "   d_boy_desired:  " << constraints.targets_d_star.at(j) << std::endl
-					<< "   yaw_boy:  " << std::endl
-					<< "   yaw_boy_desired:  " << constraints.targets_orientation_star.at(j).x << endl
-					<< "   pitch_boy:  " << std::endl
-					<< "   pitch_boy_desired:  " << constraints.targets_orientation_star.at(j).y << std::endl;
+			std::cout << "Jp " << std::endl
+					  << "--------- " << std::endl
+					  << "   d_boy:  " << distance_2D_target << std::endl
+					  << "   d_boy_desired:  " << constraints.targets_d_star.at(j) << std::endl
+					  << "   yaw_boy:  " << std::endl
+					  << "   yaw_boy_desired:  " << constraints.targets_orientation_star.at(j).x << endl
+					  << "   pitch_boy:  " << std::endl
+					  << "   pitch_boy_desired:  " << constraints.targets_orientation_star.at(j).y << std::endl;
 
-		  std::cout << "RELATIVE DISTANCE " << std::endl
-					<< "--------- " << std::endl
-					<< "   relative_boy_mpc_x_var:  " << relative_x_target << std::endl
-					<< "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
-					<< "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl
-					<< "   relative_boy_mpc_z_down_var:  " << relative_z_down_target << std::endl;
+			std::cout << "RELATIVE DISTANCE " << std::endl
+					  << "--------- " << std::endl
+					  << "   relative_boy_mpc_x_var:  " << relative_x_target << std::endl
+					  << "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
+					  << "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl
+					  << "   relative_boy_mpc_z_down_var:  " << relative_z_down_target << std::endl;
+		  }
 		}
 	  }
 	}
@@ -527,19 +531,14 @@ public:
 	  AD<double> vel_y1 = vars[vel_y_start + t];
 	  AD<double> vel_z1 = vars[vel_z_start + t];
 
-	  //   fg[t] = cinempc::calculateDistanceTo3DPoint<AD<double>>(
-	  // 	  x1, y1, z1, target_states.at(closest_target_index).pose_top.position.x,
-	  // 	  target_states.at(closest_target_index).pose_top.position.y,
-	  // 	  target_states.at(closest_target_index).pose_top.position.z);
-
 	  fg[t] = cinempc::calculateDistanceTo2DPoint<AD<double>>(
-		  x1, y1, target_states.at(closest_target_index).pose_top.position.x,
-		  target_states.at(closest_target_index).pose_top.position.y);
+		  x1, y1, target_states.at(closest_target_index).poses_top.at(t).position.x,
+		  target_states.at(closest_target_index).poses_top.at(t).position.y);
 
 	  // Setup the rest of the model constraints
-	  fg[MPC_N + x_start + t] = x1 - (x0 + vel_x0 * dt);
-	  fg[MPC_N + y_start + t] = y1 - (y0 + vel_y0 * dt);
-	  fg[MPC_N + z_start + t] = z1 - (z0 + vel_z0 * dt);
+	  fg[MPC_N + x_start + t] = x1 - (x0 + vel_x0 * mpc_dt);
+	  fg[MPC_N + y_start + t] = y1 - (y0 + vel_y0 * mpc_dt);
+	  fg[MPC_N + z_start + t] = z1 - (z0 + vel_z0 * mpc_dt);
 
 	  // rotation dynamics
 	  Eigen::Matrix<AD<double>, 3, 3> R = cinempc::RPYtoRMatrix<AD<double>>(roll0, pitch0, yaw0);
@@ -548,7 +547,7 @@ public:
 	  Eigen::Matrix<AD<double>, 3, 1> angularVelocityVector(vel_ang_x0 + 0.000001, vel_ang_y0 + 0.000001,
 															vel_ang_z0 + 0.000001);
 
-	  Eigen::Matrix<AD<double>, 3, 3> wedgeFromAngularV = expWedgeOperator(angularVelocityVector * dt);
+	  Eigen::Matrix<AD<double>, 3, 3> wedgeFromAngularV = expWedgeOperator(angularVelocityVector * mpc_dt);
 
 	  R1 = R * wedgeFromAngularV;
 
@@ -557,13 +556,13 @@ public:
 	  fg[MPC_N + pitch_gimbal_start + t] = pitch1 - (RPYVector.pitch);
 	  fg[MPC_N + yaw_gimbal_start + t] = yaw1 - (RPYVector.yaw);
 
-	  fg[MPC_N + focus_distance_start + t] = focus1 - (focus0 + vel_focus0 * dt);
-	  fg[MPC_N + focal_length_start + t] = foc1 - (foc0 + vel_foc0 * dt);
-	  fg[MPC_N + aperture_start + t] = aperture1 - (aperture0 + vel_aperture0 * dt);
+	  fg[MPC_N + focus_distance_start + t] = focus1 - (focus0 + vel_focus0 * mpc_dt);
+	  fg[MPC_N + focal_length_start + t] = foc1 - (foc0 + vel_foc0 * mpc_dt);
+	  fg[MPC_N + aperture_start + t] = aperture1 - (aperture0 + vel_aperture0 * mpc_dt);
 
-	  fg[MPC_N + vel_x_start + t] = vel_x1 - (vel_x0 + a_x_0 * dt);
-	  fg[MPC_N + vel_y_start + t] = vel_y1 - (vel_y0 + a_y_0 * dt);
-	  fg[MPC_N + vel_z_start + t] = vel_z1 - (vel_z0 + a_z_0 * dt);
+	  fg[MPC_N + vel_x_start + t] = vel_x1 - (vel_x0 + a_x_0 * mpc_dt);
+	  fg[MPC_N + vel_y_start + t] = vel_y1 - (vel_y0 + a_y_0 * mpc_dt);
+	  fg[MPC_N + vel_z_start + t] = vel_z1 - (vel_z0 + a_z_0 * mpc_dt);
 	}
   }
 };

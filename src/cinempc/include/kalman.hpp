@@ -50,6 +50,8 @@ public:
    */
   void update(const Eigen::VectorXd& y);
 
+  Eigen::VectorXd predict(int steps);
+
   /**
    * Update the estimated state based on measured values,
    * using the given time step and dynamics matrix.
@@ -66,6 +68,11 @@ public:
   double time()
   {
     return t;
+  };
+
+  double get_dt()
+  {
+    return dt;
   };
 
 private:

@@ -67,6 +67,20 @@ void KalmanFilterEigen::update(const Eigen::VectorXd& y)
   t += dt;
 }
 
+Eigen::VectorXd KalmanFilterEigen::predict(int steps)
+{
+  if (!initialized)
+    throw std::runtime_error("Filter is not initialized!");
+
+  Eigen::VectorXd state_n = x_hat;
+
+  for (int i = 0; i < steps; i++)
+  {
+    state_n = A * state_n;
+  }
+  return state_n;
+}
+
 void KalmanFilterEigen::update(const Eigen::VectorXd& y, double dt, const Eigen::MatrixXd A)
 {
   this->A = A;

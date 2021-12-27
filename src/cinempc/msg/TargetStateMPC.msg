@@ -1,4 +1,6 @@
 string target_name
-geometry_msgs/Pose pose_top_left
-geometry_msgs/Pose pose_center
-geometry_msgs/Pose poses_down
+geometry_msgs/Pose[] poses_top
+geometry_msgs/Pose[] poses_center
+geometry_msgs/Pose[] poses_bottom
+
+#For each time step

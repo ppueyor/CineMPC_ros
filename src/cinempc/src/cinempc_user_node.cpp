@@ -17,11 +17,11 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
 
   // targets_relative is relative to drone
   Eigen::Matrix<double, 3, 3> wRtarget_perception = cinempc::quatToRMatrix<double>(
-      cinempc::calculate_world_pose_from_relative<double>(req.targets_relative.at(0).pose_top, req.drone_pose)
+      cinempc::calculate_world_pose_from_relative<double>(req.targets_relative.at(0).poses_top.at(0), req.drone_pose)
           .orientation);
 
   Eigen::Matrix<double, 3, 3> dRtarget_perception =
-      cinempc::quatToRMatrix<double>(req.targets_relative.at(0).pose_top.orientation);
+      cinempc::quatToRMatrix<double>(req.targets_relative.at(0).poses_top.at(0).orientation);
 
   Eigen::Matrix<double, 3, 3> wRtarget = cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw_gt);
 
@@ -69,13 +69,15 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
   if (sequence == 1)
   {
     // starting target. From front preseting target focused and mid-body
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).pose_top.position.x,
-                                                                req.targets_relative.at(0).pose_top.position.y, 0, 0)) -
-                5;
-    c.weights.w_dn = 2;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).pose_top.position.x,
-                                                                req.targets_relative.at(0).pose_top.position.y, 0, 0));
-    c.weights.w_df = 0;
+    c.dn_star =
+        abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
+                                                        req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) -
+        5;
+    c.weights.w_dn = 10;
+    c.df_star =
+        abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
+                                                        req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0));
+    c.weights.w_df = 10;
 
     c.targets_im_top_star.at(0).x = image_x_center;
     c.weights.w_img_targets.at(0).x = 1;  // 10;                      // 1;                       // 1 *
@@ -83,13 +85,13 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.targets_im_top_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
     c.weights.w_img_targets.at(0).y_top = 1;           // 10;                      // 1;                       // 1 *
     1;
-    c.targets_im_bottom_star.at(0).y = image_y_third_down - 20;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_bottom = 0;                  // 1;                       // 1 * 1;
-    c.targets_im_center_star.at(0).y = image_y_third_down - 10;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_center = 1;                  // 1;                       // 1 * 1;
+    c.targets_im_bottom_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_bottom = 0;             // 1;                       // 1 * 1;
+    c.targets_im_center_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_center = 1;             // 1;                       // 1 * 1;
 
     c.targets_d_star.at(0) = 5;
-    c.weights.w_d_targets.at(0) = 1;  // 10;  // 1 * 1;
+    c.weights.w_d_targets.at(0) = 10;  // 10;  // 1 * 1;
     cinempc::RPY<double> relative =
         cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, 0, RPY_target.yaw - PI).transpose() * wRtarget);
 
@@ -102,32 +104,84 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
     geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
     c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 100;
+    c.weights.w_R_targets.at(0) = 1000;
 
-    c.focal_star = 40;
+    c.focal_star = 35;
     c.weights.w_focal = 0;
 
-    c.weights.w_z = 1000;
+    c.weights.w_z = 0;
   }
   if (sequence == 2)
   {
     // starting target. From front preseting target focused and mid-body
-    c.dn_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).pose_top.position.x,
-                                                                req.targets_relative.at(0).pose_top.position.y, 0, 0)) -
-                5;
-    c.weights.w_dn = 2;
-    c.df_star = abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).pose_top.position.x,
-                                                                req.targets_relative.at(0).pose_top.position.y, 0, 0));
-    c.weights.w_df = 2;
+    c.dn_star =
+        abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
+                                                        req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) -
+        5;
+    c.weights.w_dn = 0;
+    c.df_star =
+        abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
+                                                        req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0));
+    c.weights.w_df = 0;
 
     c.targets_im_top_star.at(0).x = image_x_center;
-    c.weights.w_img_targets.at(0).x = 2;  // 10;                      // 1;                       // 1 * 1;
-    c.targets_im_top_star.at(0).y = image_y_third_up - 10;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_top = 2;  // 10;                      // 1;                       // 1 * 1;
-    c.targets_im_bottom_star.at(0).y = image_y_third_down - 20;  // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).x = 1;  // 10;                      // 1;                       // 1 * 1;
+    c.targets_im_top_star.at(0).y = image_y_third_up + 80;  // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_top = 1;  // 10;                      // 1;                       // 1 * 1;
+    c.targets_im_bottom_star.at(0).y = image_y_third_down - 80;  // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_bottom = 1;                  // 1;                       // 1 * 1;
+    c.targets_im_center_star.at(0).y = image_y_third_down;       // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_center = 0;
+
+    c.targets_d_star.at(0) = 5;
+    c.weights.w_d_targets.at(0) = 0;  // 10;  // 1 * 1;
+    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
+        cinempc::RPYtoRMatrix<double>(0, -0.2, RPY_target.yaw - PI).transpose() * wRtarget);
+
+    std::cout << std::endl
+              << "RELATIVE STAR: " << std::endl
+              << relative.roll << std::endl
+              << relative.pitch << std::endl;
+
+    tf2::Quaternion quaternion_tf2;
+    quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
+    geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
+    c.targets_orientation_star.at(0) = quaternion;
+    c.weights.w_R_targets.at(0) = 5000;
+
+    c.focal_star = 35;
+    c.weights.w_focal = 0;
+
+    c.weights.w_z = 0;
+  }
+  else if (sequence == 3)
+  {
+    // starting target. From front preseting target focused and mid-body
+    c.dn_star =
+        abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
+                                                        req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) -
+        5;
+    c.weights.w_dn = 0;
+    c.df_star =
+        abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
+                                                        req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0));
+    c.weights.w_df = 0;
+
+    c.targets_im_top_star.at(0).x = image_x_center;
+    c.weights.w_img_targets.at(0).x = 1;  // 10;                      // 1;                       // 1 * 1;
+    c.targets_im_top_star.at(0).y = image_y_third_up + 80;  // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_top = 0;  // 10;                      // 1;                       // 1 * 1;
+    c.targets_im_bottom_star.at(0).y = image_y_third_down - 80;  // mid-body (control with calculations of positions)
     c.weights.w_img_targets.at(0).y_bottom = 0;                  // 1;                       // 1 * 1;
-    c.targets_im_center_star.at(0).y = image_y_third_down - 10;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_center = 2;
+    c.targets_im_center_star.at(0).y = image_y_third_down;       // mid-body (control with calculations of positions)
+    c.weights.w_img_targets.at(0).y_center = 0;                  // 1;                       // 1 * 1;
+
+    // c.targets_im_top_star.at(1).x = -1;
+    // c.weights.w_img_targets.at(1).x = 0;
+    // c.targets_im_top_star.at(1).y = -1;  // mid-body (control with calculations of positions)
+    // c.weights.w_img_targets.at(1).y = 0;
+    // c.targets_im_bottom_star.at(1).y = -1;  // mid-body (control with calculations of positions)
+    // c.weights.w_img_targets.at(1).z = 0;
 
     c.targets_d_star.at(0) = 5;
     c.weights.w_d_targets.at(0) = 0;  // 10;  // 1 * 1;
@@ -143,10 +197,10 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     quaternion_tf2.setRPY(relative.roll, relative.pitch, relative.yaw);
     geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
     c.targets_orientation_star.at(0) = quaternion;
-    c.weights.w_R_targets.at(0) = 500;
+    c.weights.w_R_targets.at(0) = 1000;
 
     c.focal_star = 400;
-    c.weights.w_focal = 10;
+    c.weights.w_focal = -10;
 
     c.weights.w_z = 1000;
   }
