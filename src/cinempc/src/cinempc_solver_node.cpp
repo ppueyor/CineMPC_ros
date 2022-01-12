@@ -25,6 +25,7 @@ std::vector<Pixel_MPC> current_pixel_target_up_plot, current_pixel_target_down_p
 	current_pixel_target_down_d_plot;
 std::vector<AD<double>> d_target_plot;
 cinempc::Constraints constraints;
+cinempc::MPCResultPlotValues plot_values;
 
 ros::Publisher results_pub;
 
@@ -358,15 +359,11 @@ public:
 		  Jp += constraints.weights.w_d_targets.at(j) * cost_d_target;
 		}
 
-		cinempc::RPY<AD<double>> rot_plot;
-		cinempc::RPY<AD<double>> rot_plot_d;
 		if (constraints.weights.w_R_targets.at(j) > 0)
 		{
 		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star =
 			  cinempc::quatToRMatrix<AD<double>>(constraints.targets_orientation_star.at(j));
 		  Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target = new_drone_R.transpose() * drone_R_target;
-		  rot_plot = cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target);
-		  rot_plot_d = cinempc::RMatrixtoRPY<AD<double>>(drone_R_star);
 		  if (t == 0)
 		  {
 			logRPY(drone_R_star, "drone_R_star");
@@ -379,22 +376,19 @@ public:
 
 		fg[0] += Jp + Jim;	// for each target
 
+		plot_values.Jim += Value(Jim);
+		plot_values.JDoF += Value(JDoF);
+		plot_values.JFoc += Value(JFoc);
+		plot_values.Jp += Value(Jp);
+
 		if (t == 0 && j == 0)
 		{
-		  roll_plot = rot_plot.roll;
-		  pitch_plot = rot_plot.pitch;
-		  yaw_plot = rot_plot.yaw;
-
-		  roll_plot_d = rot_plot_d.roll;
-		  pitch_plot_d = rot_plot_d.pitch;
-		  yaw_plot_d = rot_plot_d.yaw;
-		  hyper_plot = hyperfocal_distance_mms;
-		  dn_plot = near_acceptable_distance;
-		  df_plot = far_acceptable_distance;
-		  d_target_plot.at(t) = distance_2D_target;
-		  current_pixel_target_up_plot.at(t).x = current_pixel_u_target;
-		  current_pixel_target_up_plot.at(t).y = current_pixel_v_target_up;
-		  current_pixel_target_down_plot.at(t).y = current_pixel_v_target_down;
+		  plot_values.dn = Value(near_acceptable_distance);
+		  plot_values.df = Value(far_acceptable_distance);
+		  plot_values.im_u = Value(current_pixel_u_target);
+		  plot_values.im_v_up = Value(current_pixel_v_target_up);
+		  plot_values.im_v_down = Value(current_pixel_v_target_down);
+		  plot_values.im_v_center = Value(current_pixel_v_target_center);
 		  //   d_boy_plot = distance_2D_boy;
 		  //   d_girl_plot = distance_2D_girl;
 		  //   current_pixel_u_boy_plot = current_pixel_u_boy;
@@ -404,9 +398,6 @@ public:
 		  //   current_pixel_u_girl_plot = current_pixel_u_girl;
 		  //   current_pixel_v_up_girl_plot = current_pixel_v_girl_up;
 		  //   current_pixel_v_down_girl_plot = current_pixel_v_girl_down;
-		  current_Ji = Jim;
-		  current_Jp = Jp;
-		  current_JDoF = JDoF;
 
 		  if (log_costs)
 		  {
@@ -820,7 +811,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   // constraints for keeping the distance of security(fg[1-MPC_N])
   for (int i = 0; i < MPC_N - 1; i++)
   {
-	constraints_lowerbound[i] = 4;
+	constraints_lowerbound[i] = 3;
 	constraints_upperbound[i] = 100000;
   }
 
@@ -894,6 +885,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   {
 	auto cost = solution.obj_value;
 
+	plot_values.cost = cost;
+
 	cinempc::MPCResult response_msg;
 
 	response_msg.cost = cost;
@@ -927,28 +920,15 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  response_msg.mpc_n_states.push_back(state);
 	}
 
-	response_msg.plot_values.push_back(Value(hyper_plot));
-	// response_msg.plot_values.push_back(Value(vel_ang_x));
-	// response_msg.plot_values.push_back(Value(vel_ang_y));
-	// response_msg.plot_values.push_back(Value(vel_ang_z));
-	response_msg.plot_values.push_back(Value(roll_plot));
-	response_msg.plot_values.push_back(Value(pitch_plot));
-	response_msg.plot_values.push_back(Value(yaw_plot));
-	response_msg.plot_values.push_back(Value(roll_plot_d));
-	response_msg.plot_values.push_back(Value(pitch_plot_d));
-	response_msg.plot_values.push_back(Value(yaw_plot_d));
-	response_msg.plot_values.push_back(Value(dn_plot));
-	response_msg.plot_values.push_back(Value(df_plot));
-	for (int i = 0; i < target_states.size(); i++)
-	{
-	  response_msg.plot_values.push_back(Value(d_target_plot.at(i)));
-	  response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).x));
-	  response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).y));
-	  response_msg.plot_values.push_back(Value(current_pixel_target_down_plot.at(i).x));
-	}
-	response_msg.plot_values.push_back(Value(current_Ji));
-	response_msg.plot_values.push_back(Value(current_Jp));
-	response_msg.plot_values.push_back(Value(current_JDoF));
+	response_msg.plot_values = plot_values;
+
+	// for (int i = 0; i < target_states.size(); i++)
+	// {
+	//   response_msg.plot_values.push_back(Value(d_target_plot.at(i)));
+	//   response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).x));
+	//   response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).y));
+	//   response_msg.plot_values.push_back(Value(current_pixel_target_down_plot.at(i).x));
+	// }
 
 	results_pub.publish(response_msg);
   }

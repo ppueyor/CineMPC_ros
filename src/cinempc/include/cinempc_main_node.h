@@ -7,7 +7,9 @@
 #include <cinempc/GetUserConstraints.h>
 #include <cinempc/MPCIncomingState.h>
 #include <cinempc/MPCResult.h>
+#include <cinempc/MPCResultPlotValues.h>
 #include <cinempc/PerceptionMsg.h>
+#include <cinempc/PlotValues.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float32.h>

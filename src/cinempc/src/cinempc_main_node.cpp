@@ -8,7 +8,8 @@ using namespace std::chrono;
 std::vector<cinempc::TargetState> world_targets_states_perception, world_targets_states_gt;
 
 std::vector<KalmanFilterEigen> kalman_filter_targets;
-string errors;
+
+cinempc::PlotValues plot_values;
 
 float vel_x, vel_y, vel_z;
 float focal_length = 35, focus_distance = 10000, aperture = 20;
@@ -22,20 +23,17 @@ double interval = mpc_dt / steps_each_dt;
 double freq_loop = 1 / interval;
 bool stop = false, low_cost = false;
 
+double yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
+
 ros::Time start_log;
 
 std::stringstream logErrorFileName;
-std::ofstream errorFile;
+std::ofstream logFile;
 
 cinempc::PerceptionMsg perception_msg;
 
 float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
-
-SimpleKalmanFilter targets_kalman_filters[] = {
-  SimpleKalmanFilter(0.04, 0.01, 1), SimpleKalmanFilter(0.04, 0.01, 1), SimpleKalmanFilter(0.04, 0.01, 0.05),
-  SimpleKalmanFilter(0.04, 0.01, 1), SimpleKalmanFilter(0.04, 0.01, 1), SimpleKalmanFilter(0.04, 0.01, 0.05)
-};
 
 std::vector<double> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
     pitch_vector;
@@ -58,6 +56,7 @@ void changeSeqCallback(const std_msgs::Float32::ConstPtr& msg)
 {
   sequence = msg->data;
   std::cout << "Sequence:" << sequence << std::endl;
+  plot_values.sequence = sequence;
 }
 
 void logRPY(Eigen::Matrix<double, 3, 3> R, string name)
@@ -180,7 +179,7 @@ geometry_msgs::Point predictWorldTopPositionFromKF(int target_index, int states)
   return new_position;
 }
 
-geometry_msgs::Quaternion predictWorldOrienationFromKF(int target_index, int states)
+geometry_msgs::Quaternion predictWorldOrientationFromKF(int target_index, int states)
 {
   Eigen::VectorXd new_state(kalman_filter_targets.at(target_index).numberOfStates());
 
@@ -260,8 +259,17 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   wTtop_measure.position.z = target_z_top_gt;
   wTtop_measure.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
 
-  geometry_msgs::Pose wTtop_kf;
-  std::vector<geometry_msgs::Point> state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, target_index);
+  plot_values.target_world_gt = wTtop_measure.position;
+
+  // plot
+  geometry_msgs::Pose relative_pose = cinempc::calculate_relative_pose_drone_person<double>(wTtop_measure, drone_pose);
+  plot_values.d_gt =
+      cinempc::calculateDistanceTo2DPoint<double>(0, 0, relative_pose.position.x, relative_pose.position.y);
+
+  if (!use_perception)
+  {
+    updateKalmanWithNewMeasureAndGetState(wTtop_measure, target_index);
+  }
 }
 
 void readTargetStatePerceptionCallback(const cinempc::TargetState::ConstPtr& msg, int target_index)
@@ -270,8 +278,9 @@ void readTargetStatePerceptionCallback(const cinempc::TargetState::ConstPtr& msg
   // world position target
   geometry_msgs::Pose wTtop_measure =
       cinempc::calculate_world_pose_from_relative<double>(drone_pose, msg->pose_top, false);
-  geometry_msgs::Pose wTtop_kf;
   std::vector<geometry_msgs::Point> state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, target_index);
+
+  plot_values.target_world_perception = wTtop_measure.position;
 
   Eigen::Matrix<double, 3, 1> wvt(state.at(1).x, state.at(1).y, state.at(1).z);
   wvt.normalize();
@@ -288,18 +297,7 @@ void readTargetStatePerceptionCallback(const cinempc::TargetState::ConstPtr& msg
   R.col(1) = a;
   R.col(2) = b;
 
-  if (!static_target)
-  {
-    wTtop_kf.orientation = cinempc::RMatrixToQuat<double>(R);
-  }
-  else
-  {
-    wTtop_kf.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
-  }
-
-  wTtop_kf.position.x = state.at(0).x;
-  wTtop_kf.position.y = state.at(0).y;
-  wTtop_kf.position.z = state.at(0).z;
+  plot_values.v_kf = state.at(1);
 }
 
 void initializeTargets()
@@ -328,6 +326,14 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
   int index_mpc = 0;
 
+  // plot values
+  ros::Time end_log = ros::Time::now();
+  ros::Duration diff = end_log - start_log;
+  plot_values.time_ms = diff.toNSec() / 1000000;
+  plot_values.mpc_plot_values = msg->plot_values;
+
+  logFile << cinempc::plotValues(plot_values, false);
+  std::cout << msg->cost << std::endl;
   if (msg->cost >= 100 || msg->cost == 0)
   {
     low_cost = false;
@@ -512,14 +518,18 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       geometry_msgs::Pose world_pose_top_kf;
 
       world_pose_top_kf.position = predictWorldTopPositionFromKF(target, states);
+      plot_values.target_world_kf = world_pose_top_kf.position;
+
       if (!static_target)
       {
-        world_pose_top_kf.orientation = predictWorldOrienationFromKF(target, states);
+        world_pose_top_kf.orientation = predictWorldOrientationFromKF(target, states);
       }
       else
       {
         world_pose_top_kf.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
       }
+      plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
+      plot_values.target_rot_perception = world_pose_top_kf.orientation;
 
       cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf);
 
@@ -542,6 +552,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
   {
     msg_mpc_in.constraints = srv.response.contraints;
     new_MPC_state_publisher.publish(msg_mpc_in);
+    plot_values.constraints = srv.response.contraints;
     // std::cout << "PUBLISHED" << std::endl;
   }
 }
@@ -591,61 +602,9 @@ int main(int argc, char** argv)
   auto const in_time_t = std::chrono::system_clock::to_time_t(now);
   logErrorFileName << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/logs/error_pos_"
                    << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << ".csv";
-  errorFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
+  logFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
 
-  errorFile << "Time"
-            << ","
-            << "world_gt_x"
-            << ","
-            << "world_gt_y"
-            << ","
-            << "world_gt_z"
-            << ","
-            << "world_perception_x"
-            << ","
-            << "world_perception_y"
-            << ","
-            << "world_perception_z"
-            << ","
-            << "kf_world_x"
-            << ","
-            << "kf_world_y"
-            << ","
-            << "kf_world_z"
-            << ","
-            << "drone_gt_x"
-            << ","
-            << "drone_gt_y"
-            << ","
-            << "drone_gt_z"
-            << ","
-            << "drone_perception_x"
-            << ","
-            << "drone_perception_y"
-            << ","
-            << "drone_perception_z"
-            << ","
-            << "error_x"
-            << ","
-            << "error_y"
-            << ","
-            << "error_z"
-            << ","
-            << "kf_v_x"
-            << ","
-            << "kf_v_y"
-            << ","
-            << "kf_v_z"
-            << ","
-            << "gt_pitch"
-            << ","
-            << "gt_yaw"
-            << ","
-            << "perception_pitch"
-            << ","
-            << "perception_yaw"
-            << ","
-            << "focal_length" << std::endl;
+  logFile << cinempc::plotValues(plot_values, true);
 
   ros::NodeHandle n;
 
@@ -675,10 +634,12 @@ int main(int argc, char** argv)
   {
     targets_states_subscribers.push_back(n.subscribe<geometry_msgs::PoseStamped>(
         "airsim_node/" + targets_names.at(i) + "/get_pose", 1000, boost::bind(&readTargetStateCallback, _1, i)));
-
-    targets_states_subscribers.push_back(
-        n.subscribe<cinempc::TargetState>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 1000,
-                                          boost::bind(&readTargetStatePerceptionCallback, _1, i)));
+    if (use_perception)
+    {
+      targets_states_subscribers.push_back(
+          n.subscribe<cinempc::TargetState>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 1000,
+                                            boost::bind(&readTargetStatePerceptionCallback, _1, i)));
+    }
   }
 
   perception_publisher = n.advertise<cinempc::PerceptionMsg>("/cinempc/perception_in", 10);
@@ -702,28 +663,59 @@ int main(int argc, char** argv)
   drone_pose.orientation = q;
   gimbal_rotation_publisher.publish(msg);
 
+  double yaw_step = 0, pitch_step = 0, focal_step = 0;
+
   ros::Rate loop_rate(freq_loop);
   while (ros::ok() && !stop)
   {
     if (focal_length_spline.get_x().size() != 0 && low_cost == false)
     {
-      focal_length = focal_length_spline(interval * index_splines);
+      double diff_yaw, diff_pitch, diff_focal;
+      if (index_splines == 0)
+      {
+        diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
+        diff_pitch = pitch_vector.at(1) - pitch_vector.at(0);
+        diff_focal = focal_length_vector.at(1) - focal_length_vector.at(0);
+
+        yaw_step = diff_yaw / steps_each_dt;
+        pitch_step = diff_pitch / steps_each_dt;
+        focal_step = diff_focal / steps_each_dt;
+
+        if (abs(diff_yaw) < 0.01)
+        {
+          yaw_step = 0;
+        }
+        if (abs(diff_pitch) < 0.01)
+        {
+          pitch_step = 0;
+        }
+        if (abs(diff_focal) < 0.5)
+        {
+          focal_step = 0;
+        }
+      }
+      focal_length = focal_length + focal_step;
       focus_distance = focus_distance_spline(interval * index_splines);
       aperture = aperture_spline(interval * index_splines);
 
       fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
 
+      plot_values.intrinsics_camera = getInstrinscsMsg(focal_length, focus_distance * 100, aperture);
+
       double roll_gimbal = roll_spline(interval * index_splines);
-      double yaw_gimbal = yaw_spline(interval * index_splines);
-      double pitch_gimbal = pitch_spline(interval * index_splines);
+
+      // double yaw_gimbal = yaw_spline(interval * index_splines);
+
+      yaw_gimbal = yaw_gimbal + yaw_step;
+      pitch_gimbal = pitch_gimbal + pitch_step;
+
       geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
       // std::cout << "yaw1:" << quatToRPY(drone_pose.orientation).yaw << std::endl;
 
       airsim_ros_pkgs::GimbalAngleQuatCmd msg;
       msg.orientation = q;
       drone_pose.orientation = q;
-      // std::cout << "focal_length:" << focal_length << " index: " << index_splines
-      //         << std::endl;  // quatToRPY(msg.orientation).yaw
+
       gimbal_rotation_publisher.publish(msg);
     }
 
@@ -731,6 +723,9 @@ int main(int argc, char** argv)
     loop_rate.sleep();
     ros::spinOnce();
   }
-  errorFile.close();
+  logFile.close();
+  int a = system("rm /home/pablo/Documents/journal/matlab/log_file.csv");
+  string str1 = "cp " + logErrorFileName.str() + "  /home/pablo/Documents/journal/matlab/log_file.csv";
+  a = system(str1.c_str());
   return 0;
 }

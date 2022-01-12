@@ -1,0 +1,12 @@
+float32 time_ms
+float32 sequence
+geometry_msgs/Point target_world_gt
+geometry_msgs/Point target_world_perception
+geometry_msgs/Point target_world_kf
+float32 d_gt
+geometry_msgs/Point v_kf
+geometry_msgs/Quaternion target_rot_gt
+geometry_msgs/Quaternion target_rot_perception
+airsim_ros_pkgs/IntrinsicsCamera intrinsics_camera
+cinempc/Constraints constraints
+cinempc/MPCResultPlotValues mpc_plot_values

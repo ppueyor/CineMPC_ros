@@ -6,6 +6,7 @@
 #include <cinempc/DroneAndCameraState.h>
 #include <cinempc/MPCIncomingState.h>
 #include <cinempc/MPCResult.h>
+#include <cinempc/MPCResultPlotValues.h>
 #include <cinempc/TargetStateMPC.h>
 #include <std_msgs/Float32.h>
 #include <tf2/LinearMath/Matrix3x3.h>
