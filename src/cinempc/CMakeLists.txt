@@ -44,7 +44,8 @@ add_message_files(
   MPCIncomingState.msg
   DroneAndCameraState.msg
   WeightsTargets.msg
-  PerceptionMsg.msg  
+  PerceptionIn.msg  
+  PerceptionOut.msg  
   TargetState.msg
   MPCResult.msg
   MPCResultPlotValues.msg

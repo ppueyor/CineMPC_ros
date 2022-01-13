@@ -33,6 +33,7 @@
 #include "spline.h"
 //#include <matplot/matplot.h>
 #include <QuaternionConverters.h>
+#include <cinempc/PerceptionOut.h>
 #include <cinempc/TargetState.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <tf2/LinearMath/Quaternion.h>

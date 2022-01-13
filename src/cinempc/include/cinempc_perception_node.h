@@ -1,4 +1,5 @@
 #include <cinempc/PerceptionMsg.h>
+#include <cinempc/PerceptionOut.h>
 #include <cinempc/TargetState.h>
 #include <cv_bridge/cv_bridge.h>
 #include <sensor_msgs/Image.h>

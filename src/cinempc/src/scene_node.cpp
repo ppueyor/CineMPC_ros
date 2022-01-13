@@ -48,9 +48,9 @@ int main(int argc, char **argv)
   {
 	// set for every problem
 
-	move_target_x_per_step.at(0) = 0;  // 0.005;	 // - camera_adjustement;
-	move_target_y_per_step.at(0) = 0;  // 0.015;
-	move_target_z_per_step.at(0) = 0;  //-0.005;
+	move_target_x_per_step.at(0) = 0;	  // 0.005;	 // - camera_adjustement;
+	move_target_y_per_step.at(0) = 0.03;  // 0.015;
+	move_target_z_per_step.at(0) = 0;	  //-0.005;
 
 	for (int i = 0; i < targets_names.size(); i++)
 	{

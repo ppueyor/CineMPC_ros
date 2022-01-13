@@ -117,19 +117,20 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
     float depth_target = calculateMedianDepth(depth_cv_ptr, rect1) * 100000;  // convert to mms
     geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
 
-    geometry_msgs::Pose drone_pose_top = cinempc::drone_relative_position_from_image<double>(
+    geometry_msgs::Pose relative_target_pose_top = cinempc::drone_relative_position_from_image<double>(
         msg.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
         msg.drone_state.drone_pose.orientation, wRt);
 
-    cinempc::TargetState person_msg;
-    person_msg.pose_top = drone_pose_top;
-    person_msg.pose_top.position.z = person_msg.pose_top.position.z + 0.2;
+    cinempc::PerceptionOut perception_out_msg;
+    perception_out_msg.drone_state.drone_pose = msg.drone_state.drone_pose;
+    perception_out_msg.target_state.pose_top = relative_target_pose_top;
+    perception_out_msg.target_state.pose_top.position.z = perception_out_msg.target_state.pose_top.position.z + 0.2;
 
     // TODO: SAME POSE FOR BOTH TARGETS
     for (int i = 0; i < targets_names.size(); i++)
     {
-      person_msg.target_name = targets_names.at(i);
-      perception_result_publishers.at(i).publish(person_msg);
+      perception_out_msg.target_state.target_name = targets_names.at(i);
+      perception_result_publishers.at(i).publish(perception_out_msg);
     }
     // std::cout << "yaw1:" << target_x_cv << "u: " << target_y_cv << "v:" << target_z_cv << std::endl;
   }
@@ -160,7 +161,7 @@ int main(int argc, char** argv)
     for (int i = 0; i < targets_names.size(); i++)
     {
       perception_result_publishers.push_back(
-          n.advertise<cinempc::TargetState>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
+          n.advertise<cinempc::PerceptionOut>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
     }
 
     ros::spin();
