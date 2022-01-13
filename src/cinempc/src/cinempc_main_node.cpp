@@ -446,9 +446,19 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     srv.request.vel = max_vel;
     srv.request.timeout = 10;
     srv.request.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
-    srv.request.positions = pathMPC;
 
-    service_move_on_path.call(srv);
+    double distance = cinempc::calculateDistanceTo3DPoint<double>(pathMPC.at(0).x, pathMPC.at(0).y, pathMPC.at(0).z,
+                                                                  pathMPC.at(MPC_N - 2).x, pathMPC.at(MPC_N - 2).y,
+                                                                  pathMPC.at(MPC_N - 2).z);
+
+    std::cout << "distance:" << distance << std::endl;
+
+    if (distance > 0.15)
+    {
+      srv.request.positions = pathMPC;
+
+      service_move_on_path.call(srv);
+    }
   }
   else
   {
@@ -670,11 +680,11 @@ int main(int argc, char** argv)
         pitch_step = diff_pitch / steps_each_dt;
         focal_step = diff_focal / steps_each_dt;
 
-        if (abs(diff_yaw) < 0.01)
+        if (abs(diff_yaw) < 0.001)
         {
           yaw_step = 0;
         }
-        if (abs(diff_pitch) < 0.01)
+        if (abs(diff_pitch) < 0.001)
         {
           pitch_step = 0;
         }
