@@ -113,12 +113,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
     Rect rect1 = result.rect;
     float target_u_center = rect1.x + (rect1.width / 2);
     float target_v_top = rect1.y;  // + (rect1.height);
-    float target_v_center = rect1.y + (rect1.height / 2);
 
-    int pixel = (target_v_center * msg.rgb.width) + target_u_center;
-
-    // float depth_target = calculateDepth(depth_cv_ptr, rect1);  // convert to mms
-    // float depth_target = depth_cv_ptr->image.at<float>(target_v_center, target_u_center) * 100000;  // convert to mms
     float depth_target = calculateMedianDepth(depth_cv_ptr, rect1) * 100000;  // convert to mms
     geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
 
@@ -128,6 +123,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 
     cinempc::TargetState person_msg;
     person_msg.pose_top = drone_pose_top;
+    person_msg.pose_top.position.z = person_msg.pose_top.position.z + 0.2;
 
     // TODO: SAME POSE FOR BOTH TARGETS
     for (int i = 0; i < targets_names.size(); i++)

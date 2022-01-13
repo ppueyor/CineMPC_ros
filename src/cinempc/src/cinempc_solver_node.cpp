@@ -654,7 +654,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  if (drone_moving)
 	  {
 		lowerbound = -0.5;	// y_lowest;
-		upperbound = msg->floor_pos + 0.3;
+		upperbound = msg->floor_pos - 0.2;
 	  }
 	  else
 	  {

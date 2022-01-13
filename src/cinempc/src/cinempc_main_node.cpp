@@ -334,7 +334,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
   logFile << cinempc::plotValues(plot_values, false);
   std::cout << msg->cost << std::endl;
-  if (msg->cost >= 100 || msg->cost == 0)
+  if (msg->cost >= 400 || msg->cost == 0)
   {
     low_cost = false;
     roll_vector.insert(roll_vector.begin(), cinempc::quatToRPY<double>(drone_pose.orientation).roll);
@@ -415,7 +415,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
     for (double focal_l : focal_length_vector)
     {
-      std::cout << "focal:" << focal_l << std::endl;
+      // std::cout << "focal:" << focal_l << std::endl;
     }
 
     for (double focal_l : focus_distance_vector)
@@ -694,23 +694,46 @@ int main(int argc, char** argv)
           focal_step = 0;
         }
       }
-      focal_length = focal_length + focal_step;
+      focal_length = focal_length_spline(interval * index_splines);
       focus_distance = focus_distance_spline(interval * index_splines);
       aperture = aperture_spline(interval * index_splines);
+
+      // focal_length = focal_length + focal_step;
+      // focus_distance = focus_distance_spline(interval * index_splines);
+      // aperture = aperture_spline(interval * index_splines);
 
       fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
 
       plot_values.intrinsics_camera = getInstrinscsMsg(focal_length, focus_distance * 100, aperture);
 
+      // double roll_gimbal = roll_spline(interval * index_splines);
+
       double roll_gimbal = roll_spline(interval * index_splines);
+      double yaw_gimbal = yaw_spline(interval * index_splines);
+      double pitch_gimbal = pitch_spline(interval * index_splines);
+
+      if (index_splines == 0)
+      {
+        double diff_pitch = pitch_vector.at(1) - pitch_vector.at(0);
+        if (abs(diff_pitch) < 0.001)
+        {
+          pitch_gimbal = pitch_vector.at(0);
+        }
+        double diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
+        if (abs(diff_yaw) < 0.001)
+        {
+          yaw_gimbal = yaw_vector.at(0);
+        }
+      }
 
       // double yaw_gimbal = yaw_spline(interval * index_splines);
 
-      yaw_gimbal = yaw_gimbal + yaw_step;
-      pitch_gimbal = pitch_gimbal + pitch_step;
+      // yaw_gimbal = yaw_gimbal + yaw_step;
+      // pitch_gimbal = pitch_gimbal + pitch_step;
 
       geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
-      // std::cout << "yaw1:" << quatToRPY(drone_pose.orientation).yaw << std::endl;
+      // std::cout << "yaw1:" << cinempc::quatToRPY<double>(drone_pose.orientation).yaw << std::endl;
+      // std::cout << "pitch:" << pitch_gimbal << std::endl;
 
       airsim_ros_pkgs::GimbalAngleQuatCmd msg;
       msg.orientation = q;

@@ -53,7 +53,7 @@ const double z_lowest = min_value, z_highest = 50;
 const double foc_lowest = 20, foc_highest = 600;
 const double aperture_lowest = 1.2, aperture_highest = 22;
 
-const double velos = 5;
+const double velos = 4;
 const double vel_x_lowest = -velos, vel_x_highest = velos;
 const double vel_y_lowest = -velos, vel_y_highest = velos;
 const double vel_z_lowest = -velos, vel_z_highest = velos;
