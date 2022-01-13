@@ -97,7 +97,7 @@ KalmanFilterEigen initializeKalmanFilterTarget()
   int n = 6;  // Number of states
   int m = 3;  // Number of measurements
 
-  double dt_kf = 0.3;  // Time step that we receive each image/measurement
+  double dt_kf = mpc_dt;  // Time step that we receive each image/measurement
 
   Eigen::MatrixXd A(n, n);  // System dynamics matrix
   Eigen::MatrixXd C(m, n);  // Output matrix
