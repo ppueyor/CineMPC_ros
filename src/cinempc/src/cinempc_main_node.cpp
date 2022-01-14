@@ -34,6 +34,8 @@ cinempc::PerceptionMsg perception_msg;
 
 float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
+geometry_msgs::Pose drone_pose_when_called;
+;
 
 std::vector<double> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
     pitch_vector;
@@ -107,7 +109,7 @@ KalmanFilterEigen initializeKalmanFilterTarget()
 
   A << 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
       0, 1;
-  C << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
+  C << 2, 0, 0, 0, 0, 0, 0, -10, 0, 0, 0, 0, 0, 0, -1, 0, 0, 0;
 
   // Reasonable covariance matrices
   Q << 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0,
@@ -217,7 +219,8 @@ void readDroneStateCallback(const nav_msgs::Odometry::ConstPtr& msg)
   // drone_pose.orientation = msg->pose.pose.orientation;
 }
 
-cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_pose_top)
+cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_pose_top,
+                                                      geometry_msgs::Pose drone_pose_now)
 {
   cinempc::TargetState result;
 
@@ -237,9 +240,9 @@ cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_
   world_pose_bottom.position.z = target_z_bottom;
   world_pose_bottom.orientation = world_pose_top.orientation;
 
-  result.pose_top = cinempc::calculate_relative_pose_drone_person<double>(world_pose_top, drone_pose);
-  result.pose_center = cinempc::calculate_relative_pose_drone_person<double>(world_pose_center, drone_pose);
-  result.pose_bottom = cinempc::calculate_relative_pose_drone_person<double>(world_pose_bottom, drone_pose);
+  result.pose_top = cinempc::calculate_relative_pose_drone_person<double>(world_pose_top, drone_pose_now);
+  result.pose_center = cinempc::calculate_relative_pose_drone_person<double>(world_pose_center, drone_pose_now);
+  result.pose_bottom = cinempc::calculate_relative_pose_drone_person<double>(world_pose_bottom, drone_pose_now);
 
   return result;
 }
@@ -321,20 +324,23 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   plot_values.time_ms = diff.toNSec() / 1000000;
   plot_values.mpc_plot_values = msg->plot_values;
 
-  logFile << cinempc::plotValues(plot_values, false);
   std::cout << msg->cost << std::endl;
+  if (msg->cost > 0)
+  {
+    logFile << cinempc::plotValues(plot_values, false);
+  }
   if (msg->cost >= 100 || msg->cost == 0)
   {
     low_cost = false;
-    roll_vector.insert(roll_vector.begin(), cinempc::quatToRPY<double>(drone_pose.orientation).roll);
-    pitch_vector.insert(pitch_vector.begin(), cinempc::quatToRPY<double>(drone_pose.orientation).pitch);
-    yaw_vector.insert(yaw_vector.begin(), cinempc::quatToRPY<double>(drone_pose.orientation).yaw);
-    focal_length_vector.insert(focal_length_vector.begin(), focal_length);
-    focus_distance_vector.insert(focus_distance_vector.begin(), focus_distance);
-    aperture_vector.insert(aperture_vector.begin(), aperture);
-    times_vector.push_back(0);
+    // roll_vector.insert(roll_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).roll);
+    // pitch_vector.insert(pitch_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).pitch);
+    // yaw_vector.insert(yaw_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).yaw);
+    // focal_length_vector.insert(focal_length_vector.begin(), focal_length);
+    // focus_distance_vector.insert(focus_distance_vector.begin(), focus_distance);
+    // aperture_vector.insert(aperture_vector.begin(), aperture);
+    // times_vector.push_back(0);
 
-    index_mpc++;
+    // index_mpc++;
 
     double max_vel_x = 0, max_vel_y = 0, max_vel_z = 0;
 
@@ -351,11 +357,14 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
       geometry_msgs::Pose world_T_result;
 
-      world_T_result = cinempc::calculate_world_pose_from_relative<double>(drone_pose, cine_mpc_result.drone_pose);
+      // std::cout << "result:" << cine_mpc_result.drone_pose.position.x << "    " <<
+      // cine_mpc_result.drone_pose.position.y
+      //           << "    " << cine_mpc_result.drone_pose.position.z << std::endl;
+
+      world_T_result =
+          cinempc::calculate_world_pose_from_relative<double>(drone_pose_when_called, cine_mpc_result.drone_pose);
 
       cinempc::RPY<double> rpy = cinempc::quatToRPY<double>(world_T_result.orientation);
-      cinempc::RPY<double> rpy_drone = cinempc::quatToRPY<double>(cine_mpc_result.drone_pose.orientation);
-      cinempc::RPY<double> rpy_drone_now = cinempc::quatToRPY<double>(drone_pose.orientation);
 
       roll_vector.insert(roll_vector.begin() + index_mpc, rpy.roll);
       yaw_vector.insert(yaw_vector.begin() + index_mpc, rpy.yaw);
@@ -364,20 +373,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
       geometry_msgs::Point path_point(world_T_result.position);
       pathMPC.push_back(path_point);
 
-      // std::cout << "path_point:" << path_point.x << "    " << cine_mpc_result.drone_pose.position.z << "    "
-      //           << path_point.z << std::endl;
-
-      // std::cout << "roll_drone:" << rpy_drone.roll << std::endl;
-      // std::cout << "pitch_drone:" << rpy_drone.pitch << std::endl;
-      // std::cout << "yaw_drone:" << rpy_drone.yaw << std::endl << std::endl;
-
-      // std::cout << "roll_w:" << rpy.roll << std::endl;
-      // std::cout << "pitch_w:" << rpy.pitch << std::endl;
-      // std::cout << "yaw_w:" << rpy.yaw << std::endl << std::endl;
-
-      // std::cout << "roll_drone_now:" << rpy_drone_now.roll << std::endl;
-      // std::cout << "pitch_drone_now:" << rpy_drone_now.pitch << std::endl;
-      // std::cout << "yaw_drone_now:" << rpy_drone_now.yaw << std::endl << std::endl;
+      logPosition(world_T_result.position, to_string(index_mpc));
 
       if (index_mpc == 1)
       {
@@ -391,7 +387,8 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
       geometry_msgs::Pose dTvel;
       dTvel.position = cine_mpc_result.velocity;
       dTvel.orientation = world_T_result.orientation;
-      geometry_msgs::Pose wTvel = cinempc::calculate_world_pose_from_relative<double>(drone_pose, dTvel, true);
+      geometry_msgs::Pose wTvel =
+          cinempc::calculate_world_pose_from_relative<double>(drone_pose_when_called, dTvel, true);
 
       max_vel_x = max(abs(wTvel.position.x), max_vel_x);
       max_vel_y = max(abs(wTvel.position.y), max_vel_y);
@@ -423,7 +420,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
     for (double focal_l : pitch_vector)
     {
-      //  std::cout << "pitch:" << focal_l << std::endl;
+      // std::cout << "pitch:" << focal_l << std::endl;
     }
     for (double focal_l : roll_vector)
     {
@@ -452,13 +449,11 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
                                                                   pathMPC.at(MPC_N - 2).z);
 
     std::cout << "distance:" << distance << std::endl;
-
-    if (distance > 0.15)
-    {
-      srv.request.positions = pathMPC;
-
-      service_move_on_path.call(srv);
-    }
+    // if (distance > 0.20)
+    //{
+    srv.request.positions = pathMPC;
+    service_move_on_path.call(srv);
+    //}
   }
   else
   {
@@ -477,6 +472,10 @@ airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float 
 
 void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 {
+  geometry_msgs::Pose drone_pose_now = drone_pose;
+  drone_pose_when_called = drone_pose_now;
+
+  logPosition(drone_pose_now.position, "Drone_pose_now");
   cinempc::MPCIncomingState msg_mpc_in;
   msg_mpc_in.drone_state.drone_pose.position.x = 0;  // drone_pose.position.x;
   msg_mpc_in.drone_state.drone_pose.position.y = 0;  // drone_pose.position.y;
@@ -530,7 +529,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
       plot_values.target_rot_perception = world_pose_top_kf.orientation;
 
-      cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf);
+      cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_now);
 
       msg_mpc_in.targets.at(target).poses_top.at(t) = target_state.pose_top;
       msg_mpc_in.targets.at(target).poses_center.at(t) = target_state.pose_center;
@@ -545,7 +544,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
                                                                                                  "constraints");
   cinempc::GetUserConstraints srv;
   srv.request.targets_relative = msg_mpc_in.targets;
-  srv.request.drone_pose = drone_pose;
+  srv.request.drone_pose = drone_pose_now;
   srv.request.sequence = sequence;
   if (service_get_user_constraints.call(srv))
   {
@@ -660,6 +659,8 @@ int main(int argc, char** argv)
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, drone_start_yaw);
   msg.orientation = q;
   drone_pose.orientation = q;
+  drone_pose_next_state.orientation = q;
+  drone_pose_next_state = drone_pose;
   gimbal_rotation_publisher.publish(msg);
 
   double yaw_step = 0, pitch_step = 0, focal_step = 0;
@@ -708,8 +709,8 @@ int main(int argc, char** argv)
       // double roll_gimbal = roll_spline(interval * index_splines);
 
       // double roll_gimbal = roll_spline(interval * index_splines);
-      // double yaw_gimbal = yaw_spline(interval * index_splines);
-      // double pitch_gimbal = pitch_spline(interval * index_splines);
+      double yaw_gimbal = yaw_spline(interval * index_splines);
+      double pitch_gimbal = pitch_spline(interval * index_splines);
 
       // if (index_splines == 0)
       // {
@@ -727,8 +728,18 @@ int main(int argc, char** argv)
 
       // double yaw_gimbal = yaw_spline(interval * index_splines);
 
+      // double yaw_gimbal_result = yaw_gimbal + yaw_step;
+      // double pitch_gimbal_result = pitch_gimbal + pitch_step;
+
       yaw_gimbal = yaw_gimbal + yaw_step;
       pitch_gimbal = pitch_gimbal + pitch_step;
+
+      // round rotation to 4 decimals
+      int yaw_gimbal_int = round(yaw_gimbal * 10000);
+      int pitch_gimbal_int = round(pitch_gimbal * 10000);
+
+      // yaw_gimbal = yaw_gimbal_int / 10000.0;
+      // pitch_gimbal = pitch_gimbal_int / 10000.0;
 
       geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
       // std::cout << "yaw1:" << cinempc::quatToRPY<double>(drone_pose.orientation).yaw << std::endl;

@@ -275,6 +275,8 @@ public:
 	  }
 
 	  fg[0] += JDoF + JFoc;	 // one time /camera
+	  plot_values.JDoF += Value(JDoF);
+	  plot_values.JFoc += Value(JFoc);
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
 		// calculate relative distances
@@ -346,11 +348,6 @@ public:
 		{
 		  minimum_distance_2D_target = distance_2D_target;
 		  closest_target_index = j;
-		  std::cout << "minimum " << std::endl
-					<< "--------- " << std::endl
-					<< "   current_pixel_u_boy:  " << minimum_distance_2D_target << std::endl
-					<< "   current_pixel_u_boy_desired:  " << closest_target_index << std::endl
-					<< std::endl;
 		}
 
 		if (constraints.weights.w_d_targets.at(j) > 0)
@@ -375,11 +372,8 @@ public:
 		}
 
 		fg[0] += Jp + Jim;	// for each target
-
-		plot_values.Jim += Value(Jim);
-		plot_values.JDoF += Value(JDoF);
-		plot_values.JFoc += Value(JFoc);
 		plot_values.Jp += Value(Jp);
+		plot_values.Jim += Value(Jim);
 
 		if (t == 0 && j == 0)
 		{
@@ -401,13 +395,6 @@ public:
 
 		  if (log_costs)
 		  {
-			std::cout << "Cost:    " << Jp + Jim + JDoF << endl
-					  << "   Jp:  " << Jp << endl
-					  << "   Jim:  " << Jim << endl
-					  << "   JDoF:  " << JDoF << endl
-					  << "   JFoc:  " << JFoc << endl
-					  << std::endl;
-
 			std::cout << "JDoF " << std::endl
 					  << "--------- " << std::endl
 					  << "   Dn:  " << near_acceptable_distance << std::endl
@@ -449,6 +436,13 @@ public:
 					  << "   relative_boy_mpc_y_var:  " << relative_y_target << std::endl
 					  << "   relative_boy_mpc_z_var:  " << relative_z_up_target << std::endl
 					  << "   relative_boy_mpc_z_down_var:  " << relative_z_down_target << std::endl;
+
+			std::cout << "Cost:    " << Jp + Jim + JDoF << endl
+					  << "   Jp:  " << Jp << endl
+					  << "   Jim:  " << Jim << endl
+					  << "   JDoF:  " << JDoF << endl
+					  << "   JFoc:  " << JFoc << endl
+					  << std::endl;
 		  }
 		}
 	  }

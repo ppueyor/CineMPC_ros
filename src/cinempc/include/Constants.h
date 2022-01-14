@@ -42,7 +42,7 @@ const double desired_relative_yaw = PI;
 const double desired_relative_pitch = 2 * PI / 6;
 
 const int MPC_N = 5;
-const float mpc_dt = 0.5;  // sample period MPC
+const float mpc_dt = 0.3;  // sample period MPC
 
 const double min_value = -99999999, max_value = 99999999;
 
@@ -71,7 +71,7 @@ const double a_x_lowest = -accel, a_x_highest = accel;
 const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;
 
-const double circle_confusion = 0.03;  //(mm)
+const double circle_confusion = 0.05;  //(mm)
 
 // Definition of sequences
 const int start_sequence_1 = 0;
