@@ -52,38 +52,59 @@ void KalmanFilterEigen::init()
   initialized = true;
 }
 
-void KalmanFilterEigen::update(const Eigen::VectorXd& y)
+void KalmanFilterEigen::update(const Eigen::VectorXd& y, bool measure)
 {
   if (!initialized)
     throw std::runtime_error("Filter is not initialized!");
 
   x_hat_new = A * x_hat;
   P = A * P * A.transpose() + Q;
-  K = P * C.transpose() * (C * P * C.transpose() + R).inverse();
-  x_hat_new += K * (y - C * x_hat_new);
-  P = (I - K * C) * P;
+  if (measure)
+  {
+    K = P * C.transpose() * (C * P * C.transpose() + R).inverse();
+    x_hat_new += K * (y - C * x_hat_new);
+    P = (I - K * C) * P;
+  }
   x_hat = x_hat_new;
 
   t += dt;
 }
 
-Eigen::VectorXd KalmanFilterEigen::predict(int steps)
+Eigen::MatrixXd KalmanFilterEigen::predict(int kf_time_each_mpc, int max_time_steps)
 {
   if (!initialized)
     throw std::runtime_error("Filter is not initialized!");
 
   Eigen::VectorXd state_n = x_hat;
+  Eigen::MatrixXd states_n(max_time_steps, n);
 
-  for (int i = 0; i < steps; i++)
+  int max_interval = max_time_steps * kf_time_each_mpc;
+  int matrix_index = 0;
+
+  for (int i = 0; i < max_interval; i++)
   {
     state_n = A * state_n;
+    if (i % kf_time_each_mpc == 0)
+    {
+      states_n.row(matrix_index) = state_n;
+      matrix_index++;
+    }
+    // std::cout << "State_n" << state_n;
   }
-  return state_n;
+  return states_n;
 }
 
 void KalmanFilterEigen::update(const Eigen::VectorXd& y, double dt, const Eigen::MatrixXd A)
 {
   this->A = A;
   this->dt = dt;
-  update(y);
+  update(y, true);
+}
+
+void KalmanFilterEigen::update(double dt, const Eigen::MatrixXd A)
+{
+  Eigen::VectorXd empty;
+  this->A = A;
+  this->dt = dt;
+  update(empty, false);
 }

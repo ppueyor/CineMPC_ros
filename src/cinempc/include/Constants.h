@@ -9,7 +9,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 const double target_height = 1.62, target_width = 0.5;
 
-const bool static_target = true, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true;
+const bool static_target = false, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true;
 
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
@@ -42,7 +42,7 @@ const double desired_relative_yaw = PI;
 const double desired_relative_pitch = 2 * PI / 6;
 
 const int MPC_N = 5;
-const float mpc_dt = 0.3;  // sample period MPC
+const float mpc_dt = 0.5;  // sample period MPC
 
 const double min_value = -99999999, max_value = 99999999;
 
@@ -71,7 +71,7 @@ const double a_x_lowest = -accel, a_x_highest = accel;
 const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;
 
-const double circle_confusion = 0.05;  //(mm)
+const double circle_confusion = 0.03;  //(mm)
 
 // Definition of sequences
 const int start_sequence_1 = 0;

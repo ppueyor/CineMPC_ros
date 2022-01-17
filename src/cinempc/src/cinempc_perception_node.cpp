@@ -4,6 +4,7 @@
 using namespace cv;
 using namespace std;
 int i = 0;
+ros::Time start_log;
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
 float calculateAverageDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
 {
@@ -65,6 +66,7 @@ float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box
 
 void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 {
+  start_log = ros::Time::now();
   int personsFound = 0;
   auto data = msg.rgb.data;
   cv_bridge::CvImagePtr rgb_cv_ptr, depth_cv_ptr;
@@ -93,7 +95,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   {
     for (DarkHelp::PredictionResult result_vector : results)
     {
-      if (result_vector.name.find("person") != std::string::npos && result_vector.best_probability > 0.80)
+      if (result_vector.name.find("person") != std::string::npos && result_vector.best_probability > 0.96)
       {
         result = result_vector;
         personsFound++;
@@ -108,6 +110,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   // ".jpg",
   //             output);
 
+  cinempc::PerceptionOut perception_out_msg;
   if (personsFound > 0)
   {
     Rect rect1 = result.rect;
@@ -121,19 +124,22 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
         msg.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
         msg.drone_state.drone_pose.orientation, wRt);
 
-    cinempc::PerceptionOut perception_out_msg;
+    perception_out_msg.found = true;
     perception_out_msg.drone_state.drone_pose = msg.drone_state.drone_pose;
     perception_out_msg.target_state.pose_top = relative_target_pose_top;
     perception_out_msg.target_state.pose_top.position.z = perception_out_msg.target_state.pose_top.position.z + 0.2;
-
-    // TODO: SAME POSE FOR BOTH TARGETS
-    for (int i = 0; i < targets_names.size(); i++)
-    {
-      perception_out_msg.target_state.target_name = targets_names.at(i);
-      perception_result_publishers.at(i).publish(perception_out_msg);
-    }
-    // std::cout << "yaw1:" << target_x_cv << "u: " << target_y_cv << "v:" << target_z_cv << std::endl;
   }
+  else
+  {
+    perception_out_msg.found = false;
+  }
+  // TODO: SAME POSE FOR BOTH TARGETS
+  for (int i = 0; i < targets_names.size(); i++)
+  {
+    perception_out_msg.target_state.target_name = targets_names.at(i);
+    perception_result_publishers.at(i).publish(perception_out_msg);
+  }
+  // std::cout << "yaw1:" << target_x_cv << "u: " << target_y_cv << "v:" << target_z_cv << std::endl;
 }
 
 int main(int argc, char** argv)

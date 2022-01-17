@@ -355,12 +355,12 @@ public:
 		  AD<double> cost_d_target = CppAD::pow((distance_2D_target - constraints.targets_d_star.at(j)), 2);
 		  Jp += constraints.weights.w_d_targets.at(j) * cost_d_target;
 		}
-
+		Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target;
 		if (constraints.weights.w_R_targets.at(j) > 0)
 		{
 		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star =
 			  cinempc::quatToRMatrix<AD<double>>(constraints.targets_orientation_star.at(j));
-		  Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target = new_drone_R.transpose() * drone_R_target;
+		  new_drone_R_target = new_drone_R.transpose() * drone_R_target;
 		  if (t == 0)
 		  {
 			logRPY(drone_R_star, "drone_R_star");
@@ -383,6 +383,8 @@ public:
 		  plot_values.im_v_up = Value(current_pixel_v_target_up);
 		  plot_values.im_v_down = Value(current_pixel_v_target_down);
 		  plot_values.im_v_center = Value(current_pixel_v_target_center);
+		  plot_values.relative_yaw = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw);
+		  plot_values.relative_pitch = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch);
 		  //   d_boy_plot = distance_2D_boy;
 		  //   d_girl_plot = distance_2D_girl;
 		  //   current_pixel_u_boy_plot = current_pixel_u_boy;
@@ -425,9 +427,9 @@ public:
 					  << "--------- " << std::endl
 					  << "   d_boy:  " << distance_2D_target << std::endl
 					  << "   d_boy_desired:  " << constraints.targets_d_star.at(j) << std::endl
-					  << "   yaw_boy:  " << std::endl
+					  << "   yaw_boy:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw << std::endl
 					  << "   yaw_boy_desired:  " << constraints.targets_orientation_star.at(j).x << endl
-					  << "   pitch_boy:  " << std::endl
+					  << "   pitch_boy:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch << std::endl
 					  << "   pitch_boy_desired:  " << constraints.targets_orientation_star.at(j).y << std::endl;
 
 			std::cout << "RELATIVE DISTANCE " << std::endl

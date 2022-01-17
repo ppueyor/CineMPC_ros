@@ -8,8 +8,9 @@
  * @date: 2014.11.15
  */
 
-#include <eigen3/Eigen/Dense>
+#include <stdio.h>
 
+#include <eigen3/Eigen/Dense>
 #pragma once
 
 class KalmanFilterEigen
@@ -48,15 +49,21 @@ public:
    * Update the estimated state based on measured values. The
    * time step is assumed to remain constant.
    */
-  void update(const Eigen::VectorXd& y);
+  void update(const Eigen::VectorXd& y, bool measure);
 
-  Eigen::VectorXd predict(int steps);
+  Eigen::MatrixXd predict(int kf_time_each_mpc, int max_time_steps);
 
   /**
    * Update the estimated state based on measured values,
    * using the given time step and dynamics matrix.
    */
   void update(const Eigen::VectorXd& y, double dt, const Eigen::MatrixXd A);
+
+  /**
+   * Update the estimated state based on measured values, without measure
+   * using the given time step and dynamics matrix.
+   */
+  void update(double dt, const Eigen::MatrixXd A);
 
   /**
    * Return the current state and time.
