@@ -15,4 +15,4 @@
 #include "ros/ros.h"
 
 DarkHelp::NN darkhelp;
-std::vector<ros::Publisher> perception_result_publishers = {};
+ros::Publisher perception_result_publisher;

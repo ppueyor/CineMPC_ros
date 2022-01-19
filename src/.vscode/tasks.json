@@ -6,7 +6,6 @@
 			"args": [
 				"--directory",
 				"/home/pablo/Desktop/AirSim_update/AirSim_ros/ros",
-				//"-DCMAKE_BUILD_TYPE=RelWithDebInfo"
 				"-DCMAKE_BUILD_TYPE=Release"
 			],
 			"problemMatcher": [

@@ -64,10 +64,34 @@ float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box
   return closest_points_per_row.at(median);
 }
 
+cinempc::TargetState calculateTarget(DarkHelp::PredictionResult result, cv_bridge::CvImagePtr depth_cv_ptr,
+                                     const cinempc::PerceptionMsg& msg_in)
+{
+  Rect rect1 = result.rect;
+  float target_u_center = rect1.x + (rect1.width / 2);
+  float target_v_top = rect1.y;  // + (rect1.height);
+  float target_v_center = rect1.y + (rect1.height / 2);
+
+  float depth_target = calculateMedianDepth(depth_cv_ptr, rect1) * 100000;  // convert to mms
+  geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
+
+  geometry_msgs::Pose relative_pose_top = cinempc::drone_relative_position_from_image<double>(
+      msg_in.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
+      msg_in.drone_state.drone_pose.orientation, wRt);
+
+  cinempc::TargetState target_state;
+  target_state.pose_top = relative_pose_top;
+  // target_state.pose_top.position.z = perception_out_msg.target_state.pose_top.position.z + 0.2;
+  target_state.target_name = result.name;
+
+  return target_state;
+}
+
 void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 {
   start_log = ros::Time::now();
-  int personsFound = 0;
+  int targetsFound = 0;
+  std::vector<cinempc::TargetState> targets_state;
   auto data = msg.rgb.data;
   cv_bridge::CvImagePtr rgb_cv_ptr, depth_cv_ptr;
   try
@@ -90,18 +114,18 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
     return;
   }
   DarkHelp::PredictionResults results = darkhelp.predict(rgb_cv_ptr->image);
-  DarkHelp::PredictionResult result;
   if (results.size() != 0)
   {
     for (DarkHelp::PredictionResult result_vector : results)
     {
       if (result_vector.name.find("person") != std::string::npos && result_vector.best_probability > 0.8)
       {
-        result = result_vector;
-        personsFound++;
+        targets_state.push_back(calculateTarget(result_vector, depth_cv_ptr, msg));
+        targetsFound++;
       }
     }
   }
+
   cv::Mat output = darkhelp.annotate();
   int a = 0;
   cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/b.jpg", rgb_cv_ptr->image);
@@ -111,35 +135,12 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   //             output);
 
   cinempc::PerceptionOut perception_out_msg;
-  if (personsFound > 0)
-  {
-    Rect rect1 = result.rect;
-    float target_u_center = rect1.x + (rect1.width / 2);
-    float target_v_top = rect1.y;  // + (rect1.height);
+  perception_out_msg.targets_found = targetsFound;
+  perception_out_msg.drone_state.drone_pose = msg.drone_state.drone_pose;
 
-    float depth_target = calculateMedianDepth(depth_cv_ptr, rect1) * 100000;  // convert to mms
-    geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
+  perception_out_msg.targets_state = targets_state;
 
-    geometry_msgs::Pose relative_target_pose_top = cinempc::drone_relative_position_from_image<double>(
-        msg.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
-        msg.drone_state.drone_pose.orientation, wRt);
-
-    perception_out_msg.found = true;
-    perception_out_msg.drone_state.drone_pose = msg.drone_state.drone_pose;
-    perception_out_msg.target_state.pose_top = relative_target_pose_top;
-    perception_out_msg.target_state.pose_top.position.z = perception_out_msg.target_state.pose_top.position.z + 0.2;
-  }
-  else
-  {
-    perception_out_msg.found = false;
-  }
-  // TODO: SAME POSE FOR BOTH TARGETS
-  for (int i = 0; i < targets_names.size(); i++)
-  {
-    perception_out_msg.target_state.target_name = targets_names.at(i);
-    perception_result_publishers.at(i).publish(perception_out_msg);
-  }
-  // std::cout << "yaw1:" << target_x_cv << "u: " << target_y_cv << "v:" << target_z_cv << std::endl;
+  perception_result_publisher.publish(perception_out_msg);
 }
 
 int main(int argc, char** argv)
@@ -164,11 +165,7 @@ int main(int argc, char** argv)
 
     ros::Subscriber image_received_sub = n.subscribe("/cinempc/perception_in", 1000, newImageReceivedCallback);
 
-    for (int i = 0; i < targets_names.size(); i++)
-    {
-      perception_result_publishers.push_back(
-          n.advertise<cinempc::PerceptionOut>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 10));
-    }
+    perception_result_publisher = n.advertise<cinempc::PerceptionOut>("/cinempc/perception_output", 10);
 
     ros::spin();
   }

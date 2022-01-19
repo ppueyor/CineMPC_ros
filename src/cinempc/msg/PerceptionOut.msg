@@ -1,4 +1,4 @@
 cinempc/DroneAndCameraState drone_state
-cinempc/TargetState target_state
-bool found
+cinempc/TargetState[] targets_state
+int8 targets_found
 

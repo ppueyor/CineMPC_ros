@@ -330,7 +330,7 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   }
 }
 
-void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& msg, int target_index)
+void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& msg)
 {
   // std::cout << "pose:" << msg->pose_top.position.x << std::endl;
   // world position target
@@ -340,20 +340,26 @@ void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& m
   ros::Duration time_measure = end_measure - start_measure;
   double time_s = time_measure.toSec();
 
-  if (msg->found)
+  if (msg->targets_found > 0)
   {
-    geometry_msgs::Pose wTtop_measure = cinempc::calculate_world_pose_from_relative<double>(
-        msg->drone_state.drone_pose, msg->target_state.pose_top, false);
-    wTtop_measure.position.z += 0.05;  // face
-    state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, target_index, time_s);
-    plot_values.target_world_perception = wTtop_measure.position;
-    // logPosition(wTtop_measure.position, "wTtop_measure");
-    plot_values.v_kf = state.at(1);
+    for (cinempc::TargetState target_state : msg->targets_state)
+    {
+      if (target_state.target_name.find("person") != std::string::npos)
+      {
+        geometry_msgs::Pose wTtop_measure = cinempc::calculate_world_pose_from_relative<double>(
+            msg->drone_state.drone_pose, target_state.pose_top, false);
+        wTtop_measure.position.z += 0.2;  // face
+        state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, 0, time_s);
+        plot_values.target_world_perception = wTtop_measure.position;
+        // logPosition(wTtop_measure.position, "wTtop_measure");
+        plot_values.v_kf = state.at(1);
+      }
+    }
   }
 
   else
   {
-    updateKalmanWithoutMeasure(target_index, time_s);
+    updateKalmanWithoutMeasure(0, time_s);
   }
 
   start_measure = ros::Time::now();
@@ -691,17 +697,17 @@ int main(int argc, char** argv)
 
   ros::Subscriber stop_signal_received = n.subscribe("/cinempc/stop", 1000, stopReceivedCallback);
 
-  std::vector<ros::Subscriber> targets_states_subscribers = {};
+  std::vector<ros::Subscriber> targets_states_subscribers_gt = {};
+  ros::Subscriber targets_states_subscriber_perception;
+  if (use_perception)
+  {
+    targets_states_subscriber_perception = n.subscribe<cinempc::PerceptionOut>(
+        "/cinempc/perception_output", 1000, boost::bind(&readTargetStatePerceptionCallback, _1));
+  }
   for (int i = 0; i < targets_names.size(); i++)
   {
-    targets_states_subscribers.push_back(n.subscribe<geometry_msgs::PoseStamped>(
+    targets_states_subscribers_gt.push_back(n.subscribe<geometry_msgs::PoseStamped>(
         "airsim_node/" + targets_names.at(i) + "/get_pose", 1000, boost::bind(&readTargetStateCallback, _1, i)));
-    if (use_perception)
-    {
-      targets_states_subscribers.push_back(
-          n.subscribe<cinempc::PerceptionOut>("/cinempc/" + targets_names.at(i) + "/target_state_perception", 1000,
-                                              boost::bind(&readTargetStatePerceptionCallback, _1, i)));
-    }
   }
 
   perception_publisher = n.advertise<cinempc::PerceptionMsg>("/cinempc/perception_in", 10);

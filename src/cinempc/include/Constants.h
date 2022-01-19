@@ -42,7 +42,7 @@ const double desired_relative_yaw = PI;
 const double desired_relative_pitch = 2 * PI / 6;
 
 const int MPC_N = 5;
-const float mpc_dt = 0.5;  // sample period MPC
+const float mpc_dt = 0.4;  // sample period MPC
 
 const double min_value = -99999999, max_value = 99999999;
 
