@@ -10,7 +10,8 @@
 
 #include "ros/ros.h"
 
-double desired_pitch = -0.3;
+double desired_focal = 40;
+double weight_far = 0;
 bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserConstraints::Response &res)
 {
   cinempc::Constraints c;
@@ -72,8 +73,8 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.dn_star =
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
                                                         req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) -
-        4;
-    c.weights.w_dn = 2;
+        0.5;
+    c.weights.w_dn = 30;
     c.df_star =
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
                                                         req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) +
@@ -105,33 +106,35 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.targets_orientation_star.at(0) = quaternion;
     c.weights.w_R_targets.at(0) = 400;
 
-    c.focal_star = 50;
-    c.weights.w_focal = 0.5;
+    c.focal_star = desired_focal;
+    c.weights.w_focal = 2;
 
     c.weights.w_z = 0;
   }
-  if (sequence == 2)
+  else if (sequence == 2)
   {
     // starting target. From front preseting target focused and mid-body
     c.dn_star =
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
                                                         req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) -
         0.5;
-    c.weights.w_dn = 10;
+    c.weights.w_dn = 30;
     c.df_star =
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
                                                         req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) +
-        0.5;
-    c.weights.w_df = 10;
+        2;
+    weight_far = 30;
+
+    c.weights.w_df = weight_far;
 
     c.targets_im_top_star.at(0).x = image_x_center;
     c.weights.w_img_targets.at(0).x = 1;               // 10;                      // 1;                       // 1 * 1;
     c.targets_im_top_star.at(0).y = image_y_third_up;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_top = 1;           // 10;                      // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).y_top = 0.5;         // 10;                      // 1;                       // 1 * 1;
     c.targets_im_bottom_star.at(0).y = -1;             // mid-body (control with calculations of positions)
     c.weights.w_img_targets.at(0).y_bottom = 0;        // 1;                       // 1 * 1;
     c.targets_im_center_star.at(0).y = image_y_third_down;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_center = 1;
+    c.weights.w_img_targets.at(0).y_center = 0.5;
 
     c.targets_d_star.at(0) = -1;
     c.weights.w_d_targets.at(0) = 0;  // 10;  // 1 * 1;
@@ -148,11 +151,14 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     geometry_msgs::Quaternion quaternion = tf2::toMsg(quaternion_tf2);
     c.targets_orientation_star.at(0) = quaternion;
     c.weights.w_R_targets.at(0) = 400;
-
-    c.focal_star = 450;
+    if (desired_focal < 450)
+    {
+      desired_focal += 7;
+    }
+    c.focal_star = desired_focal;
     c.weights.w_focal = 0.5;
 
-    c.weights.w_z = 10;
+    c.weights.w_z = 0;
   }
   res.contraints = c;
   return true;

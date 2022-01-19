@@ -12,7 +12,7 @@ std::vector<KalmanFilterEigen> kalman_filter_targets;
 cinempc::PlotValues plot_values;
 
 float vel_x, vel_y, vel_z;
-float focal_length = 35, focus_distance = 10000, aperture = 20;
+float focal_length = 35, focus_distance = 10000, aperture = 22;
 
 int index_splines = 0;
 bool noise = true;
@@ -115,7 +115,7 @@ KalmanFilterEigen initializeKalmanFilterTarget()
 
   // Reasonable covariance matrices
   Q << 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0,
-      0, 0.5;
+      0, 0.5;  // hacer dependiente de dt
   R << 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
 
   P << 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
@@ -255,9 +255,9 @@ std::vector<geometry_msgs::Pose> predictWorldTopPosesFromKF(int target_index, in
 
     poses.push_back(target_pose);
 
-    logPosition(target_pose.position, to_string(i));
+    // logPosition(target_pose.position, to_string(i));
 
-    logPosition(new_vel, "vel " + to_string(i));
+    // logPosition(new_vel, "vel " + to_string(i));
   }
 
   // logPosition(new_position, "pos_kf" + to_string(time_step));
@@ -344,6 +344,7 @@ void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& m
   {
     geometry_msgs::Pose wTtop_measure = cinempc::calculate_world_pose_from_relative<double>(
         msg->drone_state.drone_pose, msg->target_state.pose_top, false);
+    wTtop_measure.position.z += 0.05;  // face
     state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, target_index, time_s);
     plot_values.target_world_perception = wTtop_measure.position;
     // logPosition(wTtop_measure.position, "wTtop_measure");
@@ -372,6 +373,7 @@ void initializeTargets()
 
 void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 {
+  std::cout << std::endl;
   std::vector<geometry_msgs::Point> pathMPC;
   focal_length_vector.clear();
   focus_distance_vector.clear();
@@ -466,7 +468,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
     for (double focal_l : focal_length_vector)
     {
-      // std::cout << "focal:" << focal_l << std::endl;
+      std::cout << "focal:" << focal_l << std::endl;
     }
 
     for (double focal_l : focus_distance_vector)
@@ -514,11 +516,11 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
                                                                   pathMPC.at(MPC_N - 2).z);
 
     //  std::cout << "distance:" << distance << std::endl;
-    // if (distance > 0.20)
-    //{
-    srv.request.positions = pathMPC;
-    service_move_on_path.call(srv);
-    //}
+    if (distance > 0.20)
+    {
+      srv.request.positions = pathMPC;
+      service_move_on_path.call(srv);
+    }
   }
   else
   {
@@ -725,23 +727,26 @@ int main(int argc, char** argv)
   drone_pose_next_state = drone_pose;
   gimbal_rotation_publisher.publish(msg);
 
-  double yaw_step = 0, pitch_step = 0, focal_step = 0;
+  double yaw_step = 0, pitch_step = 0, focal_step = 0, ap_step;
 
   ros::Rate loop_rate(freq_loop);
   while (ros::ok() && !stop)
   {
     if (focal_length_spline.get_x().size() != 0 && low_cost == false)
     {
-      double diff_yaw, diff_pitch, diff_focal;
+      double diff_yaw, diff_pitch, diff_focal, diff_ap;
       if (index_splines == 0)
       {
         diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
         diff_pitch = pitch_vector.at(1) - pitch_vector.at(0);
         diff_focal = focal_length_vector.at(1) - focal_length_vector.at(0);
+        diff_focal = focal_length_vector.at(1) - focal_length_vector.at(0);
+        diff_ap = aperture_vector.at(1) - aperture_vector.at(0);
 
         yaw_step = diff_yaw / steps_each_dt;
         pitch_step = diff_pitch / steps_each_dt;
         focal_step = diff_focal / steps_each_dt;
+        ap_step = diff_ap / steps_each_dt;
 
         if (abs(diff_yaw) < 0.001)
         {
@@ -756,9 +761,9 @@ int main(int argc, char** argv)
           focal_step = 0;
         }
       }
-      focal_length = focal_length_spline(interval * index_splines);
+      focal_length = focal_length + focal_step;
       focus_distance = focus_distance_spline(interval * index_splines);
-      aperture = aperture_spline(interval * index_splines);
+      aperture = aperture + ap_step;
 
       // focal_length = focal_length + focal_step;
       // focus_distance = focus_distance_spline(interval * index_splines);
@@ -766,13 +771,14 @@ int main(int argc, char** argv)
 
       fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
 
-      plot_values.intrinsics_camera = getInstrinscsMsg(focal_length, focus_distance * 100, aperture);
+      // plot_values.intrinsics_camera = getInstrinscsMsg(focal_length, focus_distance * 100, aperture);
 
       // double roll_gimbal = roll_spline(interval * index_splines);
 
       // double roll_gimbal = roll_spline(interval * index_splines);
-      double yaw_gimbal = yaw_spline(interval * index_splines);
-      double pitch_gimbal = pitch_spline(interval * index_splines);
+
+      // double yaw_gimbal = yaw_spline(interval * index_splines);
+      // double pitch_gimbal = pitch_spline(interval * index_splines);
 
       // if (index_splines == 0)
       // {

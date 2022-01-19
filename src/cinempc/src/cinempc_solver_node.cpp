@@ -315,23 +315,53 @@ public:
 
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{
+		  AD<double> weight = constraints.weights.w_img_targets.at(j).x;
+
 		  AD<double> cost_pixel_u_target =
 			  CppAD::pow(current_pixel_u_target - constraints.targets_im_top_star.at(j).x, 2);
-		  CppAD::pow(current_pixel_u_target - constraints.targets_im_top_star.at(j).x, 2);
-		  Jim += constraints.weights.w_img_targets.at(j).x * cost_pixel_u_target;
+		  if (cost_pixel_u_target < 36)
+		  {
+			weight = weight * 0.01;
+		  }
+		  Jim += weight * cost_pixel_u_target;
 		}
 		if (constraints.weights.w_img_targets.at(j).y_top > 0)
 		{
+		  AD<double> weight = constraints.weights.w_img_targets.at(j).y_top;
 		  AD<double> cost_pixel_v_target_up =
 			  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_top_star.at(j).y, 2);
-		  Jim += constraints.weights.w_img_targets.at(j).y_top * cost_pixel_v_target_up;
+		  if (cost_pixel_v_target_up < 49)
+		  {
+			weight = weight * 0.01;
+		  }
+		  Jim += weight * cost_pixel_v_target_up;
+
+		  //     AD<double> weight = constraints.weights.w_img_targets.at(j).y_top;
+
+		  //   AD<double> cost_pixel_v_target_up =
+		  // 	  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_top_star.at(j).y, 2);
+
+		  //   AD<double> cost_pixel_v_target_up_tol = cost_pixel_v_target_up - 25;
+
+		  //   if (cost_pixel_v_target_up_tol < 0)
+		  //   {
+		  // 	cost_pixel_v_target_up_tol = 0.1;
+		  //   }
+
+		  //   Jim += weight * cost_pixel_v_target_up_tol;
 		}
 
 		if (constraints.weights.w_img_targets.at(j).y_center > 0)
 		{
+		  AD<double> weight = constraints.weights.w_img_targets.at(j).y_center;
+
 		  AD<double> cost_pixel_v_target_center =
 			  CppAD::pow(current_pixel_v_target_center - constraints.targets_im_center_star.at(j).y, 2);
-		  Jim += constraints.weights.w_img_targets.at(j).y_center * cost_pixel_v_target_center;
+		  if (cost_pixel_v_target_center < 49)
+		  {
+			weight = weight * 0.01;
+		  }
+		  Jim += weight * cost_pixel_v_target_center;
 		}
 
 		if (constraints.weights.w_img_targets.at(j).y_bottom > 0)
@@ -382,6 +412,11 @@ public:
 		  plot_values.im_u = Value(current_pixel_u_target);
 		  plot_values.im_v_up = Value(current_pixel_v_target_up);
 		  plot_values.im_v_down = Value(current_pixel_v_target_down);
+		  plot_values.im_v_center = Value(current_pixel_v_target_center);
+		  plot_values.intrinsics_camera.focal_length = Value(vars[focal_length_start + 0]);
+		  plot_values.intrinsics_camera.aperture = Value(vars[aperture_start + 0]);
+		  plot_values.intrinsics_camera.focus_distance = Value(vars[focus_distance_start + 0]) * 100;
+
 		  plot_values.im_v_center = Value(current_pixel_v_target_center);
 		  plot_values.relative_yaw = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw);
 		  plot_values.relative_pitch = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch);
@@ -661,25 +696,25 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 
 	else if (i >= roll_gimbal_start && i < pitch_gimbal_start)
 	{
-	  lowerbound = -0.1;
-	  upperbound = 0.1;
+	  lowerbound = roll_lowest;
+	  upperbound = roll_highest;
 	}
 	else if (i >= pitch_gimbal_start && i < yaw_gimbal_start)
 	{
-	  lowerbound = -0.1;
-	  upperbound = 0.1;
+	  lowerbound = pitch_lowest;
+	  upperbound = pitch_highest;
 	}
 	else if (i >= yaw_gimbal_start && i < focus_distance_start)
 	{
-	  lowerbound = -0.1;
-	  upperbound = 0.1;
+	  lowerbound = yaw_lowest;
+	  upperbound = yaw_highest;
 	}
 	else if (i >= focus_distance_start && i < focal_length_start)
 	{
 	  if (use_cineMPC)
 	  {
-		lowerbound = 4;
-		upperbound = 70;
+		lowerbound = focus_lowest;
+		upperbound = focus_highest;
 	  }
 	  else
 	  {
@@ -691,8 +726,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (use_cineMPC)
 	  {
-		lowerbound = 30;
-		upperbound = 500;
+		lowerbound = foc_lowest;
+		upperbound = foc_highest;
 	  }
 	  else
 	  {
@@ -704,8 +739,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (use_cineMPC)
 	  {
-		lowerbound = 1;
-		upperbound = 25;
+		lowerbound = aperture_lowest;
+		upperbound = aperture_highest;
 	  }
 	  else
 	  {
@@ -745,15 +780,15 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	}
 	else if (i >= vel_focus_distance_start && i < vel_focal_length_start)
 	{
-	  lowerbound = -15;
-	  upperbound = 15;
+	  lowerbound = vel_focus_lowest;
+	  upperbound = vel_focus_highest;
 	}
 	else if (i >= vel_focal_length_start && i < vel_aperture_start)
 	{
 	  if (use_cineMPC)
 	  {
-		lowerbound = -15;
-		upperbound = 25;
+		lowerbound = vel_foc_lowest;
+		upperbound = vel_foc_highest;
 	  }
 	  else
 	  {
@@ -765,8 +800,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (use_cineMPC)
 	  {
-		lowerbound = -15;
-		upperbound = 15;
+		lowerbound = vel_aperture_lowest;
+		upperbound = vel_aperture_highest;
 	  }
 	  else
 	  {
@@ -807,7 +842,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   // constraints for keeping the distance of security(fg[1-MPC_N])
   for (int i = 0; i < MPC_N - 1; i++)
   {
-	constraints_lowerbound[i] = 3;
+	constraints_lowerbound[i] = 2;
 	constraints_upperbound[i] = 100000;
   }
 
