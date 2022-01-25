@@ -17,39 +17,19 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
   cinempc::Constraints c;
 
   // targets_relative is relative to drone
-  Eigen::Matrix<double, 3, 3> wRtarget_perception = cinempc::quatToRMatrix<double>(
-      cinempc::calculate_world_pose_from_relative<double>(req.targets_relative.at(0).poses_top.at(0), req.drone_pose)
-          .orientation);
+  Eigen::Matrix<double, 3, 3> wRtarget_perception = cinempc::quatToRMatrix<double>(req.world_rotations_target.at(0));
 
-  Eigen::Matrix<double, 3, 3> dRtarget_perception =
-      cinempc::quatToRMatrix<double>(req.targets_relative.at(0).poses_top.at(0).orientation);
-
-  Eigen::Matrix<double, 3, 3> wRtarget = cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw_gt);
-
+  Eigen::Matrix<double, 3, 3> wRtarget_gt = cinempc::RPYtoRMatrix<double>(0, 0, subject_yaw_gt);
+  Eigen::Matrix<double, 3, 3> wRtarget;
+  if (use_perception && !static_target)
+  {
+    wRtarget = wRtarget_perception;
+  }
+  else
+  {
+    wRtarget = wRtarget_gt;
+  }
   cinempc::RPY<double> RPY_target = cinempc::RMatrixtoRPY<double>(wRtarget);
-  cinempc::RPY<double> RPY_target__rel_perc = cinempc::RMatrixtoRPY<double>(dRtarget_perception);
-  cinempc::RPY<double> RPY_target_perc = cinempc::RMatrixtoRPY<double>(wRtarget_perception);
-
-  std::cout << std::endl
-            << "  RPY target   " << std::endl
-            << std::endl
-            << RPY_target.roll << std::endl
-            << RPY_target.pitch << std::endl
-            << RPY_target.yaw << "  " << std::endl;
-
-  std::cout << std::endl
-            << "  RPY PERCEPTION   " << std::endl
-            << std::endl
-            << RPY_target_perc.roll << std::endl
-            << RPY_target_perc.pitch << std::endl
-            << RPY_target_perc.yaw << "  " << std::endl;
-
-  std::cout << std::endl
-            << "  RPY RELATIVE PERCEPTION   " << std::endl
-            << std::endl
-            << RPY_target__rel_perc.roll << std::endl
-            << RPY_target__rel_perc.pitch << std::endl
-            << RPY_target__rel_perc.yaw << "  " << std::endl;
 
   for (int i = 0; i < req.targets_relative.size(); i++)
   {
@@ -92,8 +72,8 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
 
     c.targets_d_star.at(0) = -1;
     c.weights.w_d_targets.at(0) = 0;  // 10;  // 1 * 1;
-    cinempc::RPY<double> relative =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, 0, RPY_target.yaw - PI).transpose() * wRtarget);
+    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
+        cinempc::RPYtoRMatrix<double>(RPY_target.roll, RPY_target.pitch, RPY_target.yaw - PI).transpose() * wRtarget);
 
     std::cout << std::endl
               << "RELATIVE STAR: " << std::endl
@@ -138,8 +118,8 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
 
     c.targets_d_star.at(0) = -1;
     c.weights.w_d_targets.at(0) = 0;  // 10;  // 1 * 1;
-    cinempc::RPY<double> relative =
-        cinempc::RMatrixtoRPY<double>(cinempc::RPYtoRMatrix<double>(0, 0, RPY_target.yaw - PI).transpose() * wRtarget);
+    cinempc::RPY<double> relative = cinempc::RMatrixtoRPY<double>(
+        cinempc::RPYtoRMatrix<double>(RPY_target.roll, RPY_target.pitch, RPY_target.yaw - PI).transpose() * wRtarget);
 
     std::cout << std::endl
               << "RELATIVE STAR: " << std::endl

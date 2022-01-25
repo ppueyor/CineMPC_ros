@@ -405,15 +405,15 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   if (msg->cost >= 100 || msg->cost == 0)
   {
     low_cost = false;
-    // roll_vector.insert(roll_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).roll);
-    // pitch_vector.insert(pitch_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).pitch);
-    // yaw_vector.insert(yaw_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).yaw);
-    // focal_length_vector.insert(focal_length_vector.begin(), focal_length);
-    // focus_distance_vector.insert(focus_distance_vector.begin(), focus_distance);
-    // aperture_vector.insert(aperture_vector.begin(), aperture);
-    // times_vector.push_back(0);
+    roll_vector.insert(roll_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).roll);
+    pitch_vector.insert(pitch_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).pitch);
+    yaw_vector.insert(yaw_vector.begin(), cinempc::quatToRPY<double>(drone_pose_when_called.orientation).yaw);
+    focal_length_vector.insert(focal_length_vector.begin(), focal_length);
+    focus_distance_vector.insert(focus_distance_vector.begin(), focus_distance);
+    aperture_vector.insert(aperture_vector.begin(), aperture);
+    times_vector.push_back(0);
 
-    // index_mpc++;
+    index_mpc++;
 
     double max_vel_x = 0, max_vel_y = 0, max_vel_z = 0;
 
@@ -448,7 +448,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
       // logPosition(world_T_result.position, to_string(index_mpc));
 
-      if (index_mpc == 1)
+      if (index_mpc == 2)
       {
         focal_length_next_state = cine_mpc_result.intrinsics.focal_length;
         drone_pose_next_state = world_T_result;
@@ -579,13 +579,14 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
     }
     msg_mpc_in.targets.push_back(target_state_mpc);
   }
+  std::vector<geometry_msgs::Quaternion> world_rotations;
 
   for (int target = 0; target < targets_names.size(); target++)
   {
     KalmanFilterEigen kf_target = kalman_filter_targets.at(target);
     int kf_time_each_mpc = mpc_dt / kf_target.get_dt();
     std::vector<geometry_msgs::Pose> world_top_poses = predictWorldTopPosesFromKF(target, kf_time_each_mpc);
-
+    world_rotations.push_back(world_top_poses.at(0).orientation);
     for (int t = 0; t < MPC_N; t++)
     {
       geometry_msgs::Pose world_pose_top_kf = world_top_poses.at(t);
@@ -613,6 +614,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
                                                                                                  "constraints");
   cinempc::GetUserConstraints srv;
   srv.request.targets_relative = msg_mpc_in.targets;
+  srv.request.world_rotations_target = world_rotations;
   srv.request.drone_pose = drone_pose_now;
   srv.request.sequence = sequence;
   if (service_get_user_constraints.call(srv))

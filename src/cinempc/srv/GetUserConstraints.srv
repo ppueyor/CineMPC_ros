@@ -1,4 +1,5 @@
 int8 sequence
+geometry_msgs/Quaternion[] world_rotations_target
 cinempc/TargetStateMPC[] targets_relative
 geometry_msgs/Pose drone_pose
 ---

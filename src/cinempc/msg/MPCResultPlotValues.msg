@@ -11,4 +11,5 @@ float32 im_v_center
 float32 im_v_down
 float32 relative_pitch
 float32 relative_yaw
+float32 relative_roll
 airsim_ros_pkgs/IntrinsicsCamera intrinsics_camera

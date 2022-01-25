@@ -211,7 +211,6 @@ Pixel_MPC readPixel(AD<double> focal_length_mm, AD<double> relative_position_x_m
 
   Pixel_MPC p;
   p.x = xPixels_px;
-  sensor_width_mm / 2 + ((focal_length_mm * vectorPixels(0)) / vectorPixels(2)) * picture_width_px / sensor_width_mm;
   p.y = yPixels_px;
 
   return (p);
@@ -418,6 +417,7 @@ public:
 		  plot_values.intrinsics_camera.focus_distance = Value(vars[focus_distance_start + 0]) * 100;
 
 		  plot_values.im_v_center = Value(current_pixel_v_target_center);
+		  plot_values.relative_roll = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).roll);
 		  plot_values.relative_yaw = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw);
 		  plot_values.relative_pitch = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch);
 		  //   d_boy_plot = distance_2D_boy;
@@ -462,10 +462,15 @@ public:
 					  << "--------- " << std::endl
 					  << "   d_boy:  " << distance_2D_target << std::endl
 					  << "   d_boy_desired:  " << constraints.targets_d_star.at(j) << std::endl
+					  << "   roll_boy:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).roll << std::endl
+					  << "   roll_boy_desired:  "
+					  << cinempc::quatToRPY<AD<double>>(constraints.targets_orientation_star.at(j)).roll << endl
 					  << "   yaw_boy:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw << std::endl
-					  << "   yaw_boy_desired:  " << constraints.targets_orientation_star.at(j).x << endl
+					  << "   yaw_boy_desired:  "
+					  << cinempc::quatToRPY<AD<double>>(constraints.targets_orientation_star.at(j)).yaw << endl
 					  << "   pitch_boy:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch << std::endl
-					  << "   pitch_boy_desired:  " << constraints.targets_orientation_star.at(j).y << std::endl;
+					  << "   pitch_boy_desired:  "
+					  << cinempc::quatToRPY<AD<double>>(constraints.targets_orientation_star.at(j)).pitch << std::endl;
 
 			std::cout << "RELATIVE DISTANCE " << std::endl
 					  << "--------- " << std::endl
