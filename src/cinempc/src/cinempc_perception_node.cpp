@@ -1,10 +1,13 @@
 #include "QuaternionConverters.h"
 #include "cinempc_perception_node.h"
+#include "common/common_utils/FileSystem.hpp"
+#include "common/common_utils/Utils.hpp"
 
 using namespace cv;
 using namespace std;
 int i = 0;
 ros::Time start_log;
+std::stringstream folder_name, name_depth, name_rgb, name_perception;
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
 float calculateAverageDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
 {
@@ -89,7 +92,6 @@ cinempc::TargetState calculateTarget(DarkHelp::PredictionResult result, cv_bridg
 
 void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 {
-  start_log = ros::Time::now();
   int targetsFound = 0;
   std::vector<cinempc::TargetState> targets_state;
   auto data = msg.rgb.data;
@@ -128,8 +130,23 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 
   cv::Mat output = darkhelp.annotate();
   int a = 0;
-  cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/b.jpg", rgb_cv_ptr->image);
-  cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/a.jpg", output);
+
+  ros::Time end_log = ros::Time::now();
+  ros::Duration diff = end_log - start_log;
+  int time_s = diff.toNSec() / (1000000000 * 1);
+
+  std::stringstream depth_name, rgb_name, perception_name;
+  depth_name << folder_name.str() << time_s << "_depth"
+             << ".jpg";
+  rgb_name << folder_name.str() << time_s << "_rgb"
+           << ".jpg";
+  perception_name << folder_name.str() << time_s << "_perception"
+                  << ".jpg";
+
+  cv::imwrite(depth_name.str(), depth_cv_ptr->image);
+  cv::imwrite(rgb_name.str(), rgb_cv_ptr->image);
+  cv::imwrite(perception_name.str(), output);
+
   // cv::imwrite("/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/a" + to_string(index_pic) +
   // ".jpg",
   //             output);
@@ -162,7 +179,13 @@ int main(int argc, char** argv)
     darkhelp.config.sort_predictions = DarkHelp::ESort::kDescending;
 
     ros::NodeHandle n;
+    start_log = ros::Time::now();
+    auto const now = std::chrono::system_clock::now();
+    auto const in_time_t = std::chrono::system_clock::to_time_t(now);
 
+    folder_name << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/Tuareg/"
+                << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << "/";
+    common_utils::FileSystem::createDirectory(folder_name.str());
     ros::Subscriber image_received_sub = n.subscribe("/cinempc/perception_in", 1000, newImageReceivedCallback);
 
     perception_result_publisher = n.advertise<cinempc::PerceptionOut>("/cinempc/perception_output", 10);

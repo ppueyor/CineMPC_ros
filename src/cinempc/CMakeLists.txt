@@ -102,7 +102,7 @@ target_link_libraries(cinempc_solver_node ipopt ${catkin_LIBRARIES} )
 
 add_executable(cinempc_perception_node src/cinempc_perception_node.cpp) 
 add_dependencies(cinempc_perception_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
-target_link_libraries(cinempc_perception_node ipopt darkhelp darknet ${catkin_LIBRARIES} )
+target_link_libraries(cinempc_perception_node ipopt darkhelp darknet ${catkin_LIBRARIES} AirLib)
 
 add_executable(cinempc_user_node src/cinempc_user_node.cpp) 
 add_dependencies(cinempc_user_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
