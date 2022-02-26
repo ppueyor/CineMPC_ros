@@ -55,9 +55,9 @@ const double roll_lowest = -0.1, roll_highest = 0.1;
 const double pitch_lowest = -0.1, pitch_highest = 0.1;
 const double yaw_lowest = -0.1, yaw_highest = 0.1;
 
-const double foc_lowest = 30, foc_highest = 500;           // 30 500
-const double focus_lowest = 4, focus_highest = max_value;  // 4 70
-const double aperture_lowest = 1.2, aperture_highest = 22;
+const double foc_lowest = 30, foc_highest = 500;     // 30 500
+const double focus_lowest = 4, focus_highest = 100;  // 4 70
+const double aperture_lowest = 1, aperture_highest = 22;
 
 const double velos = 4;
 const double vel_x_lowest = -velos, vel_x_highest = velos;

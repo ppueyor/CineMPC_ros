@@ -274,8 +274,6 @@ public:
 	  }
 
 	  fg[0] += JDoF + JFoc;	 // one time /camera
-	  plot_values.JDoF += Value(JDoF);
-	  plot_values.JFoc += Value(JFoc);
 	  for (int j = 0; j < target_states.size(); j++)
 	  {
 		// calculate relative distances
@@ -401,11 +399,13 @@ public:
 		}
 
 		fg[0] += Jp + Jim;	// for each target
-		plot_values.Jp += Value(Jp);
-		plot_values.Jim += Value(Jim);
 
 		if (t == 0 && j == 0)
 		{
+		  plot_values.Jp = Value(Jp);
+		  plot_values.Jim = Value(Jim);
+		  plot_values.JDoF = Value(JDoF);
+		  plot_values.JFoc = Value(JFoc);
 		  plot_values.dn = Value(near_acceptable_distance);
 		  plot_values.df = Value(far_acceptable_distance);
 		  plot_values.im_u = Value(current_pixel_u_target);

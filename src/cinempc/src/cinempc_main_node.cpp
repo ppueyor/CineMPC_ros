@@ -474,7 +474,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
     for (double focal_l : focal_length_vector)
     {
-      std::cout << "focal:" << focal_l << std::endl;
+      // std::cout << "focal:" << focal_l << std::endl;
     }
 
     for (double focal_l : focus_distance_vector)
