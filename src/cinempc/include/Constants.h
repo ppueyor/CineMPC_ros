@@ -9,7 +9,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 const double target_height = 1.62, target_width = 0.5;
 
-const bool static_target = true, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true;
+const bool static_target = true, use_perception = true, drone_moving = true, use_cineMPC = false, log_costs = true;
 
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
@@ -51,29 +51,29 @@ const double x_lowest = min_value, x_highest = x_highest;
 const double y_lowest = min_value, y_highest = max_value;
 const double z_lowest = -0.5, z_highest = 50;  // z_higuest depends on floor
 
-const double roll_lowest = -0.1, roll_highest = 0.1;
-const double pitch_lowest = -0.1, pitch_highest = 0.1;
-const double yaw_lowest = -0.1, yaw_highest = 0.1;
+const double roll_lowest = -0.05, roll_highest = 0.05;
+const double pitch_lowest = -0.05, pitch_highest = 0.05;
+const double yaw_lowest = -0.05, yaw_highest = 0.05;
 
 const double foc_lowest = 30, foc_highest = 500;     // 30 500
 const double focus_lowest = 4, focus_highest = 100;  // 4 70
 const double aperture_lowest = 1, aperture_highest = 22;
 
-const double velos = 4;
+const double velos = 2;
 const double vel_x_lowest = -velos, vel_x_highest = velos;
 const double vel_y_lowest = -velos, vel_y_highest = velos;
 const double vel_z_lowest = -velos, vel_z_highest = velos;
 
-const double vel_ang = 0.1;
+const double vel_ang = 0.05;
 const double vel_ang_x_lowest = -vel_ang, vel_ang_x_highest = vel_ang;
 const double vel_ang_y_lowest = -vel_ang, vel_ang_y_highest = vel_ang;
 const double vel_ang_z_lowest = -vel_ang, vel_ang_z_highest = vel_ang;
 
-const double vel_foc_lowest = -25, vel_foc_highest = 25;  // -15 25
+const double vel_foc_lowest = -20, vel_foc_highest = 20;  // -15 25
 const double vel_focus_lowest = -15, vel_focus_highest = 15;
 const double vel_aperture_lowest = -3, vel_aperture_highest = 3;
 
-const double accel = 2;
+const double accel = 1.2;
 const double a_x_lowest = -accel, a_x_highest = accel;
 const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;

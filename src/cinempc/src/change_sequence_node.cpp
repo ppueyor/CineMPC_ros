@@ -17,7 +17,7 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
 	ros::Duration delayed_time = ros::Time::now() - start_time;
-	if (delayed_time.sec > 25)
+	if (delayed_time.sec > 27)
 	{
 	  current_sequence = 3;
 	}
