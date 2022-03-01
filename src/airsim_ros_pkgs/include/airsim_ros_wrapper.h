@@ -237,10 +237,10 @@ private:
 
     ros::Subscriber vel_cmd_body_frame_sub;
     ros::Subscriber vel_cmd_world_frame_sub;
+    ros::Subscriber move_on_path_sub;
 
     ros::ServiceServer takeoff_srvr;
     ros::ServiceServer land_srvr;
-    ros::ServiceServer move_on_path_srvr;
 
     bool has_vel_cmd;
     VelCmd vel_cmd;
@@ -268,14 +268,15 @@ private:
                          const std::string &vehicle_name,
                          const std::string &camera_name);  //, const std::string& vehicle_name, const std::string&
                                                            // camera_name);
+  void move_on_path_cb(const airsim_ros_pkgs::MoveOnPath::ConstPtr &move_on_path_cmd_msg,
+                       const std::string &vehicle_name);  //, const std::string& vehicle_name, const std::string&
+                                                          // camera_name);
+
   void set_object_pose_cb(const geometry_msgs::Pose::ConstPtr &object_state_cmd_msg, const std::string &target_name);
 
   bool enable_manual_focus_srv_cb(airsim_ros_pkgs::EnableManualFocus::Request &request,
                                   airsim_ros_pkgs::EnableManualFocus::Response &response,
                                   const std::string &vehicle_name, const std::string &camera_name);
-
-  bool move_on_path_srv_cb(airsim_ros_pkgs::MoveOnPath::Request &request,
-                           airsim_ros_pkgs::MoveOnPath::Response &response, const std::string &vehicle_name);
 
   // void vel_cmd_body_frame_cb(const airsim_ros_pkgs::VelCmd& msg, const std::string& vehicle_name);
   void gimbal_angle_quat_cmd_cb(const airsim_ros_pkgs::GimbalAngleQuatCmd &gimbal_angle_quat_cmd_msg);

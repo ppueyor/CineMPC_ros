@@ -187,7 +187,9 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
       drone->vel_cmd_world_frame_sub = nh_private_.subscribe<airsim_ros_pkgs::VelCmd>(
           curr_vehicle_name + "/vel_cmd_world_frame", 1,
           boost::bind(&AirsimROSWrapper::vel_cmd_world_frame_cb, this, _1, vehicle_ros->vehicle_name));
-
+      drone->move_on_path_sub = nh_private_.subscribe<airsim_ros_pkgs::MoveOnPath>(
+          curr_vehicle_name + "/move_on_path", 1,
+          boost::bind(&AirsimROSWrapper::move_on_path_cb, this, _1, vehicle_ros->vehicle_name));
       drone->takeoff_srvr =
           nh_private_.advertiseService<airsim_ros_pkgs::Takeoff::Request, airsim_ros_pkgs::Takeoff::Response>(
               curr_vehicle_name + "/takeoff",
@@ -196,10 +198,6 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
           curr_vehicle_name + "/land",
           boost::bind(&AirsimROSWrapper::land_srv_cb, this, _1, _2, vehicle_ros->vehicle_name));
 
-      drone->move_on_path_srvr =
-          nh_private_.advertiseService<airsim_ros_pkgs::MoveOnPath::Request, airsim_ros_pkgs::MoveOnPath::Response>(
-              curr_vehicle_name + "/move_on_path",
-              boost::bind(&AirsimROSWrapper::move_on_path_srv_cb, this, _1, _2, vehicle_ros->vehicle_name));
       // vehicle_ros.reset_srvr = nh_private_.advertiseService(curr_vehicle_name +
       // "/reset",&AirsimROSWrapper::reset_srv_cb, this);
     }
@@ -655,6 +653,28 @@ void AirsimROSWrapper::vel_cmd_group_body_frame_cb(const airsim_ros_pkgs::VelCmd
   }
 }
 
+void AirsimROSWrapper::move_on_path_cb(const airsim_ros_pkgs::MoveOnPath::ConstPtr& msg,
+                                       const std::string& vehicle_name)
+{
+  std::lock_guard<std::mutex> guard(drone_control_mutex_);
+
+  auto drone = static_cast<MultiRotorROS*>(vehicle_name_ptr_map_[vehicle_name].get());
+
+  double roll, pitch, yaw;
+  tf2::Matrix3x3(get_tf2_quat(drone->curr_drone_state.kinematics_estimated.pose.orientation))
+      .getRPY(roll, pitch, yaw);  // ros uses xyzw
+
+  std::vector<Vector3r> path;
+  for (const geometry_msgs::Point point : msg->positions)
+  {
+    Vector3r vec(point.x, point.y, point.z);
+    path.push_back(vec);
+  }
+  static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
+      ->moveOnPathAsync(path, msg->vel, msg->timeout, DrivetrainType::MaxDegreeOfFreedom,
+                        YawMode(false, 180 * msg->rads_yaw / M_PI), -1, 1, vehicle_name);
+}
+
 // void AirsimROSWrapper::vel_cmd_all_body_frame_cb(const airsim_ros_pkgs::VelCmd::ConstPtr& msg)
 void AirsimROSWrapper::vel_cmd_all_body_frame_cb(const airsim_ros_pkgs::VelCmd& msg)
 {
@@ -763,24 +783,6 @@ bool AirsimROSWrapper::enable_manual_focus_srv_cb(airsim_ros_pkgs::EnableManualF
 {
   static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
       ->simEnableManualFocus(request.enable, camera_name, vehicle_name);
-
-  return true;
-}
-
-bool AirsimROSWrapper::move_on_path_srv_cb(airsim_ros_pkgs::MoveOnPath::Request& request,
-                                           airsim_ros_pkgs::MoveOnPath::Response& response,
-                                           const std::string& vehicle_name)
-{
-  std::lock_guard<std::mutex> guard(drone_control_mutex_);
-  std::vector<Vector3r> path;
-  for (const geometry_msgs::Point point : request.positions)
-  {
-    Vector3r vec(point.x, point.y, point.z);
-    path.push_back(vec);
-  }
-  static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
-      ->moveOnPathAsync(path, request.vel, request.timeout, DrivetrainType::MaxDegreeOfFreedom,
-                        YawMode(false, 180 * request.rads_yaw / M_PI), -1, 1, vehicle_name);
 
   return true;
 }

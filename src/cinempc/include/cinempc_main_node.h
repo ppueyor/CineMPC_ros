@@ -52,8 +52,7 @@ ros::Publisher fpv_intrinsics_publisher;
 ros::Publisher perception_publisher;
 ros::Publisher gimbal_rotation_publisher;
 ros::Publisher new_MPC_state_publisher;
-
-ros::ServiceClient service_move_on_path;
+ros::Publisher move_on_path_publisher;
 
 ros::Timer cinempc_calculate_new_states_timer_;
 

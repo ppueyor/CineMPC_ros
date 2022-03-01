@@ -509,13 +509,13 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     index_splines = 0;
 
     // move on path
-    airsim_ros_pkgs::MoveOnPath srv;
+    airsim_ros_pkgs::MoveOnPath msg_move_on_path;
     double max_vel = max(0.1, max(max_vel_x, max(max_vel_y, max_vel_z)));
 
     // std::cout << "max_vel:" << max_vel << std::endl;
-    srv.request.vel = max_vel;
-    srv.request.timeout = 10;
-    srv.request.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
+    msg_move_on_path.vel = max_vel;
+    msg_move_on_path.timeout = 10;
+    msg_move_on_path.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
 
     double distance = cinempc::calculateDistanceTo3DPoint<double>(pathMPC.at(0).x, pathMPC.at(0).y, pathMPC.at(0).z,
                                                                   pathMPC.at(MPC_N - 2).x, pathMPC.at(MPC_N - 2).y,
@@ -524,8 +524,8 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     //  std::cout << "distance:" << distance << std::endl;
     if (distance > 0.20)
     {
-      srv.request.positions = pathMPC;
-      service_move_on_path.call(srv);
+      msg_move_on_path.positions = pathMPC;
+      move_on_path_publisher.publish(msg_move_on_path);
     }
   }
   else
@@ -724,8 +724,7 @@ int main(int argc, char** argv)
 
   cinempc_calculate_new_states_timer_ = n.createTimer(ros::Duration(mpc_dt), boost::bind(publishNewStateToMPC, _1, n));
 
-  service_move_on_path = n.serviceClient<airsim_ros_pkgs::MoveOnPath>("/airsim_node/drone_1/move_on_path");
-
+  move_on_path_publisher = n.advertise<airsim_ros_pkgs::MoveOnPath>("/airsim_node/drone_1/move_on_path", 10);
   // init camera pose
   airsim_ros_pkgs::GimbalAngleQuatCmd msg;
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, drone_start_yaw);

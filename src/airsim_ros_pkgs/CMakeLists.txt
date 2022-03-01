@@ -52,6 +52,7 @@ add_message_files(
   IntrinsicsCamera.msg
   VelCmdGroup.msg
   CarControls.msg
+  MoveOnPath.msg
   CarState.msg
   Altimeter.msg
   Environment.msg
@@ -63,7 +64,6 @@ add_service_files(
   SetGPSPosition.srv
   Takeoff.srv
   EnableManualFocus.srv
-  MoveOnPath.srv 
   TakeoffGroup.srv
   Land.srv
   LandGroup.srv
