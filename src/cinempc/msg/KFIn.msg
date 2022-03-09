@@ -1,0 +1,4 @@
+geometry_msgs/Pose world_pose_target
+int8 target_index
+float32 time_s
+bool measure

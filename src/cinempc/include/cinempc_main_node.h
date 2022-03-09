@@ -3,8 +3,10 @@
 #include <airsim_ros_pkgs/MoveOnPath.h>
 #include <airsim_ros_pkgs/Takeoff.h>
 #include <cinempc/Constraints.h>
-#include <cinempc/GetNextPersonPoses.h>
+#include <cinempc/GetNNextTargetPoses.h>
 #include <cinempc/GetUserConstraints.h>
+#include <cinempc/KFIn.h>
+#include <cinempc/KFOut.h>
 #include <cinempc/MPCIncomingState.h>
 #include <cinempc/MPCResult.h>
 #include <cinempc/MPCResultPlotValues.h>
@@ -52,10 +54,11 @@
 ros::Publisher perception_publisher;
 ros::Publisher gimbal_rotation_publisher;
 ros::Publisher new_MPC_state_publisher;
+ros::Publisher low_level_control_publisher;
+ros::Publisher kf_in_publisher;
 
 ros::Timer cinempc_calculate_new_states_timer_;
 
-ros::Publisher low_level_control_publisher;
 ros::Subscriber gimbal_rotation_subscriber;
 ros::Subscriber fpv_intrinsics_subscriber;
 

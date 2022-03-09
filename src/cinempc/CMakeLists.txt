@@ -48,6 +48,7 @@ add_message_files(
   PerceptionOut.msg  
   TargetState.msg
   MPCResult.msg
+  KFIn.msg
   MPCResultPlotValues.msg
   PlotValues.msg
   LowLevelControl.msg
@@ -58,7 +59,7 @@ add_message_files(
 
 add_service_files(
   FILES
-  GetNextPersonPoses.srv
+  GetNNextTargetPoses.srv
   GetUserConstraints.srv
 ) 
 
@@ -113,9 +114,13 @@ add_executable(cinempc_main_node src/cinempc_main_node.cpp src/kalman.cpp)
 add_dependencies(cinempc_main_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_main_node ${catkin_LIBRARIES} )
 
-add_executable(cinempc_low_level_node src/cinempc_low_level_node.cpp src/kalman.cpp) 
+add_executable(cinempc_low_level_node src/cinempc_low_level_node.cpp) 
 add_dependencies(cinempc_low_level_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_low_level_node ${catkin_LIBRARIES} )
+
+add_executable(cinempc_perception_estimation_node src/cinempc_perception_estimation.cpp src/kalman.cpp) 
+add_dependencies(cinempc_perception_estimation_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_perception_estimation_node ${catkin_LIBRARIES} )
 
 
 install(TARGETS

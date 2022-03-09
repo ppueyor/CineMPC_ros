@@ -7,8 +7,6 @@ using namespace std::chrono;
 // Current position of drone
 std::vector<cinempc::TargetState> world_targets_states_perception, world_targets_states_gt;
 
-std::vector<KalmanFilterEigen> kalman_filter_targets;
-
 cinempc::PlotValues plot_values;
 
 float vel_x, vel_y, vel_z;
@@ -93,179 +91,6 @@ double generateNoise(double mean, double st_dev)
     return 0;
   }
 }
-KalmanFilterEigen initializeKalmanFilterTarget()
-{
-  int n = 6;  // Number of states
-  int m = 3;  // Number of measurements
-
-  double dt_kf = 0.2;  // Time step that we receive each image/measurement. We need to make it match with
-                       // update_airsim_img_response_every_n_sec param of the sim
-
-  Eigen::MatrixXd A(n, n);  // System dynamics matrix
-  Eigen::MatrixXd C(m, n);  // Output matrix
-  Eigen::MatrixXd Q(n, n);  // Process noise covariance
-  Eigen::MatrixXd R(m, m);  // Measurement noise covariance
-  Eigen::MatrixXd P(n, n);  // Estimate error covariance
-
-  A << 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-      0, 1;
-  C << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
-
-  // Reasonable covariance matrices
-  Q << 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0,
-      0, 0.5;  // hacer dependiente de dt
-  R << 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
-
-  P << 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
-      2;  // bigger than  Q and R. Incertidumbre inicial
-
-  std::cout << "A: \n" << A << std::endl;
-  std::cout << "C: \n" << C << std::endl;
-  std::cout << "Q: \n" << Q << std::endl;
-  std::cout << "R: \n" << R << std::endl;
-  std::cout << "P: \n" << P << std::endl;
-
-  // Construct the filter
-  KalmanFilterEigen init(dt_kf, A, C, Q, R, P, n, m);
-
-  Eigen::VectorXd x0(n);
-  double t = 0;
-  x0 << 0, 0, 0, 0, 0, 0;
-  init.init(t, x0);
-
-  return init;
-}
-
-const Eigen::MatrixXd getNewAMatrix(double dt_kf)
-{
-  int n = 6;                // Number of states
-  Eigen::MatrixXd A(n, n);  // System dynamics matrix
-
-  A << 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-      0, 1;
-
-  return A;
-}
-
-std::vector<geometry_msgs::Point> updateKalmanWithNewMeasureAndGetState(geometry_msgs::Pose world_pose_target,
-                                                                        int target, double t_s)
-{
-  Eigen::VectorXd measurement(kalman_filter_targets.at(target).numberOfMeasurements());
-  measurement(0) = world_pose_target.position.x;
-  measurement(1) = world_pose_target.position.y;
-  measurement(2) = world_pose_target.position.z;
-
-  Eigen::MatrixXd A = getNewAMatrix(t_s);
-  kalman_filter_targets.at(target).update(measurement, t_s, A);
-
-  Eigen::VectorXd new_state(kalman_filter_targets.at(target).numberOfStates());
-
-  new_state = kalman_filter_targets.at(target).state();
-
-  geometry_msgs::Point new_position;
-  geometry_msgs::Point new_velocity;
-
-  new_position.x = new_state(0);
-  new_position.y = new_state(1);
-  new_position.z = new_state(2);
-
-  new_velocity.x = new_state(3);
-  new_velocity.y = new_state(4);
-  new_velocity.z = new_state(5);
-
-  std::vector<geometry_msgs::Point> vector;
-  vector.push_back(new_position);
-  vector.push_back(new_velocity);
-
-  return vector;
-}
-
-void updateKalmanWithoutMeasure(int target, double t_s)
-{
-  Eigen::MatrixXd A = getNewAMatrix(t_s);
-  kalman_filter_targets.at(target).update(t_s, A);
-}
-
-geometry_msgs::Quaternion predictWorldOrientationFromVelocity(double vx, double vy, double vz)
-{
-  Eigen::Matrix<double, 3, 1> wvt(vx, vy, vz);
-  wvt.normalize();
-  Eigen::Matrix<double, 3, 1> g(0, 0, 9.8);
-  g.normalize();
-  Eigen::Matrix<double, 3, 1> a = g.cross(wvt);
-  a.normalize();
-  Eigen::Matrix<double, 3, 1> b = wvt.cross(a);
-  b.normalize();
-
-  // Now we have R in the world, we suppose all the parts of the target will have the same orientation
-  Eigen::Matrix<double, 3, 3> R;
-  R.col(0) = wvt;
-  R.col(1) = a;
-  R.col(2) = b;
-
-  // logRPY(R, "orient");
-  return cinempc::RMatrixToQuat<double>(R);
-}
-
-void readDroneStateCallback(const nav_msgs::Odometry::ConstPtr& msg)
-{
-  float drone_x = msg->pose.pose.position.x;
-  float drone_y = msg->pose.pose.position.y;
-  float drone_z = msg->pose.pose.position.z;
-
-  drone_pose.position.x = drone_x;
-  drone_pose.position.y = drone_y;
-  drone_pose.position.z = drone_z;
-
-  // drone_pose.orientation = msg->pose.pose.orientation;
-}
-
-std::vector<geometry_msgs::Pose> predictWorldTopPosesFromKF(int target_index, int kf_time_each_mpc)
-{
-  Eigen::MatrixXd new_states(MPC_N, kalman_filter_targets.at(target_index).numberOfStates());
-
-  new_states = kalman_filter_targets.at(target_index).predict(kf_time_each_mpc, MPC_N);
-
-  geometry_msgs::Point new_position, new_vel;
-
-  std::vector<geometry_msgs::Pose> poses;
-
-  for (int i = 0; i < MPC_N; i++)
-  {
-    geometry_msgs::Point new_vel;
-    geometry_msgs::Pose target_pose;
-
-    target_pose.position.x = new_states(i, 0);
-    target_pose.position.y = new_states(i, 1);
-    target_pose.position.z = new_states(i, 2);
-    new_vel.x = new_states(i, 3);
-    new_vel.y = new_states(i, 4);
-    new_vel.z = new_states(i, 5);
-
-    if (!static_target)
-    {
-      target_pose.orientation = predictWorldOrientationFromVelocity(new_vel.x, new_vel.y, new_vel.z);
-    }
-    else
-    {
-      target_pose.orientation = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
-    }
-
-    poses.push_back(target_pose);
-
-    // logPosition(target_pose.position, to_string(i));
-
-    // logPosition(new_vel, "vel " + to_string(i));
-  }
-
-  // logPosition(new_position, "pos_kf" + to_string(time_step));
-  // if (time_step == 0)
-  // {
-  //   logPosition(new_vel, "vel_kf" + to_string(time_step));
-  // }
-
-  return poses;
-}
 
 cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_pose_top,
                                                       geometry_msgs::Pose drone_pose_now)
@@ -293,6 +118,19 @@ cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_
   result.pose_bottom = cinempc::calculate_relative_pose_drone_person<double>(world_pose_bottom, drone_pose_now);
 
   return result;
+}
+
+void readDroneStateCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+  float drone_x = msg->pose.pose.position.x;
+  float drone_y = msg->pose.pose.position.y;
+  float drone_z = msg->pose.pose.position.z;
+
+  drone_pose.position.x = drone_x;
+  drone_pose.position.y = drone_y;
+  drone_pose.position.z = drone_z;
+
+  // drone_pose.orientation = msg->pose.pose.orientation;
 }
 
 void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, int target_index)
@@ -323,7 +161,12 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
     ros::Time end_measure = ros::Time::now();
     ros::Duration time_measure = end_measure - start_measure;
     double time_s = time_measure.toSec();
-    updateKalmanWithNewMeasureAndGetState(wTtop_measure, target_index, time_s);
+    cinempc::KFIn kf_in_msg;
+    kf_in_msg.world_pose_target = wTtop_measure;
+    kf_in_msg.target_index = target_index;
+    kf_in_msg.time_s = time_s;
+    kf_in_msg.measure = true;
+    kf_in_publisher.publish(kf_in_msg);
     start_measure = ros::Time::now();
   }
 }
@@ -347,17 +190,33 @@ void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& m
         geometry_msgs::Pose wTtop_measure = cinempc::calculate_world_pose_from_relative<double>(
             msg->drone_state.drone_pose, target_state.pose_top, false);
         wTtop_measure.position.z += 0.2;  // face
-        state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, 0, time_s);
-        plot_values.target_world_perception = wTtop_measure.position;
+
+        cinempc::KFIn kf_in_msg;
+        kf_in_msg.world_pose_target = wTtop_measure;
+        kf_in_msg.target_index = 0;
+        kf_in_msg.time_s = time_s;
+        kf_in_msg.measure = true;
+        kf_in_publisher.publish(kf_in_msg);
+
+        // TODO
+        // state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, 0, time_s);
+        // plot_values.target_world_perception = wTtop_measure.position;
         // logPosition(wTtop_measure.position, "wTtop_measure");
-        plot_values.v_kf = state.at(1);
+        // plot_values.v_kf = state.at(1);
       }
     }
   }
-
   else
   {
-    updateKalmanWithoutMeasure(0, time_s);
+    // update the times of KF even if there is no measure
+    for (int i = 0; i < targets_names.size(); i++)
+    {
+      cinempc::KFIn kf_in_msg;
+      kf_in_msg.time_s = time_s;
+      kf_in_msg.target_index = i;
+      kf_in_msg.measure = false;
+      kf_in_publisher.publish(kf_in_msg);
+    }
   }
 
   start_measure = ros::Time::now();
@@ -369,9 +228,6 @@ void initializeTargets()
     cinempc::TargetState state;
     world_targets_states_perception.push_back(state);
     world_targets_states_gt.push_back(state);
-
-    KalmanFilterEigen kf = initializeKalmanFilterTarget();
-    kalman_filter_targets.push_back(kf);
   }
 }
 
@@ -572,29 +428,37 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 
   for (int target = 0; target < targets_names.size(); target++)
   {
-    KalmanFilterEigen kf_target = kalman_filter_targets.at(target);
-    int kf_time_each_mpc = mpc_dt / kf_target.get_dt();
-    std::vector<geometry_msgs::Pose> world_top_poses = predictWorldTopPosesFromKF(target, kf_time_each_mpc);
-    world_rotations.push_back(world_top_poses.at(0).orientation);
-    for (int t = 0; t < MPC_N; t++)
+    ros::ServiceClient service_get_N_poses = n.serviceClient<cinempc::GetNNextTargetPoses>("/cinempc/"
+                                                                                           "get_N_target_poses");
+
+    cinempc::GetNNextTargetPoses srv_get_poses;
+    srv_get_poses.request.target_index = target;
+    srv_get_poses.request.mpc_dt = mpc_dt;
+    srv_get_poses.request.mpc_N = MPC_N;
+    if (service_get_N_poses.call(srv_get_poses))
     {
-      geometry_msgs::Pose world_pose_top_kf = world_top_poses.at(t);
-      // logPosition(world_pose_top_kf.position, to_string(t));
-      if (t == 0)
+      std::vector<geometry_msgs::Pose> world_top_poses = srv_get_poses.response.poses_target;
+      world_rotations.push_back(world_top_poses.at(0).orientation);
+      for (int t = 0; t < MPC_N; t++)
       {
-        plot_values.target_world_kf = world_pose_top_kf.position;
+        geometry_msgs::Pose world_pose_top_kf = world_top_poses.at(t);
+        // logPosition(world_pose_top_kf.position, to_string(t));
+        if (t == 0)
+        {
+          plot_values.target_world_kf = world_pose_top_kf.position;
+        }
+
+        plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
+        plot_values.target_rot_perception = world_pose_top_kf.orientation;
+
+        cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_now);
+
+        msg_mpc_in.targets.at(target).poses_top.at(t) = target_state.pose_top;
+        msg_mpc_in.targets.at(target).poses_center.at(t) = target_state.pose_center;
+        msg_mpc_in.targets.at(target).poses_bottom.at(t) = target_state.pose_bottom;
+
+        // logPosition(msg_mpc_in.targets.at(target).poses_top.at(t).position, "pos" + to_string(t));
       }
-
-      plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, subject_yaw_gt);
-      plot_values.target_rot_perception = world_pose_top_kf.orientation;
-
-      cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_now);
-
-      msg_mpc_in.targets.at(target).poses_top.at(t) = target_state.pose_top;
-      msg_mpc_in.targets.at(target).poses_center.at(t) = target_state.pose_center;
-      msg_mpc_in.targets.at(target).poses_bottom.at(t) = target_state.pose_bottom;
-
-      // logPosition(msg_mpc_in.targets.at(target).poses_top.at(t).position, "pos" + to_string(t));
     }
   }
   ros::ServiceClient service_get_user_constraints = n.serviceClient<cinempc::GetUserConstraints>("/cinempc/"
@@ -719,6 +583,8 @@ int main(int argc, char** argv)
       "/airsim_node/drone_1/set_intrinsics", 1000, boost::bind(&readIntrinsicsCallback, _1));
 
   low_level_control_publisher = n.advertise<cinempc::LowLevelControl>("cinempc/low_level_control", 10);
+
+  kf_in_publisher = n.advertise<cinempc::KFIn>("cinempc/kf_in", 10);
 
   gimbal_rotation_subscriber = n.subscribe<airsim_ros_pkgs::GimbalAngleQuatCmd>(
       "/airsim_node/gimbal_angle_quat_cmd", 1000, boost::bind(&readGimbalOrientationCallback, _1));
