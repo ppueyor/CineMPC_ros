@@ -33,6 +33,7 @@
 #include "spline.h"
 //#include <matplot/matplot.h>
 #include <QuaternionConverters.h>
+#include <cinempc/LowLevelControl.h>
 #include <cinempc/PerceptionOut.h>
 #include <cinempc/TargetState.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -48,12 +49,14 @@
 #include <kalman.hpp>
 #include <random>
 
-ros::Publisher fpv_intrinsics_publisher;
 ros::Publisher perception_publisher;
 ros::Publisher gimbal_rotation_publisher;
 ros::Publisher new_MPC_state_publisher;
-ros::Publisher move_on_path_publisher;
 
 ros::Timer cinempc_calculate_new_states_timer_;
+
+ros::Publisher low_level_control_publisher;
+ros::Subscriber gimbal_rotation_subscriber;
+ros::Subscriber fpv_intrinsics_subscriber;
 
 geometry_msgs::Pose drone_pose;

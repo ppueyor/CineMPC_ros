@@ -36,10 +36,8 @@ cinempc::PerceptionMsg perception_msg;
 float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
 geometry_msgs::Pose drone_pose_when_called;
-;
 
-std::vector<double> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
-    pitch_vector;
+std::vector<float> roll_vector, yaw_vector, pitch_vector, focal_length_vector, focus_distance_vector, aperture_vector;
 tk::spline focal_length_spline, focus_distance_spline, aperture_spline, roll_spline, yaw_spline, pitch_spline;
 
 static std::default_random_engine generator;
@@ -387,7 +385,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   yaw_vector.clear();
   roll_vector.clear();
   pitch_vector.clear();
-  times_vector.clear();
 
   int index_mpc = 0;
 
@@ -411,7 +408,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     focal_length_vector.insert(focal_length_vector.begin(), focal_length);
     focus_distance_vector.insert(focus_distance_vector.begin(), focus_distance);
     aperture_vector.insert(aperture_vector.begin(), aperture);
-    times_vector.push_back(0);
 
     index_mpc++;
 
@@ -420,7 +416,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     while (index_mpc < MPC_N)
     {
       cinempc::DroneAndCameraState cine_mpc_result = msg->mpc_n_states.at(index_mpc);
-      times_vector.push_back(mpc_dt * index_mpc);
 
       focal_length_vector.insert(focal_length_vector.begin() + index_mpc, cine_mpc_result.intrinsics.focal_length);
 
@@ -450,7 +445,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
       if (index_mpc == 2)
       {
-        focal_length_next_state = cine_mpc_result.intrinsics.focal_length;
+        // focal_length_next_state = cine_mpc_result.intrinsics.focal_length;
         drone_pose_next_state = world_T_result;
         vel_x = cine_mpc_result.velocity.x;
         vel_y = cine_mpc_result.velocity.y;
@@ -499,34 +494,28 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     {
       // std::cout << "roll:" << focal_l << std::endl;
     }
-    focal_length_spline.set_points(times_vector, focal_length_vector);
-    focus_distance_spline.set_points(times_vector, focus_distance_vector);
-    aperture_spline.set_points(times_vector, aperture_vector);
-    roll_spline.set_points(times_vector, roll_vector);
-    yaw_spline.set_points(times_vector, yaw_vector);
-    pitch_spline.set_points(times_vector, pitch_vector);
-
     index_splines = 0;
+    // focal_length_spline.set_points(times_vector, focal_length_vector);
+
+    cinempc::LowLevelControl low_level_control_msg;
+
+    low_level_control_msg.yaw_vector = yaw_vector;
+    low_level_control_msg.pitch_vector = pitch_vector;
+    low_level_control_msg.focal_length_vector = focal_length_vector;
+    low_level_control_msg.aperture_vector = aperture_vector;
+    low_level_control_msg.focus_distance_vector = focus_distance_vector;
 
     // move on path
     airsim_ros_pkgs::MoveOnPath msg_move_on_path;
     double max_vel = max(0.1, max(max_vel_x, max(max_vel_y, max_vel_z)));
 
     // std::cout << "max_vel:" << max_vel << std::endl;
-    msg_move_on_path.vel = max_vel;
-    msg_move_on_path.timeout = 10;
-    msg_move_on_path.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
+    low_level_control_msg.move_on_path_msg.vel = max_vel;
+    low_level_control_msg.move_on_path_msg.timeout = 10;
+    low_level_control_msg.move_on_path_msg.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
+    low_level_control_msg.move_on_path_msg.positions = pathMPC;
 
-    double distance = cinempc::calculateDistanceTo3DPoint<double>(pathMPC.at(0).x, pathMPC.at(0).y, pathMPC.at(0).z,
-                                                                  pathMPC.at(MPC_N - 2).x, pathMPC.at(MPC_N - 2).y,
-                                                                  pathMPC.at(MPC_N - 2).z);
-
-    //  std::cout << "distance:" << distance << std::endl;
-    if (distance > 0.20)
-    {
-      msg_move_on_path.positions = pathMPC;
-      move_on_path_publisher.publish(msg_move_on_path);
-    }
+    low_level_control_publisher.publish(low_level_control_msg);
   }
   else
   {
@@ -564,7 +553,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 
   // std::cout << "floor_pos:" << msg_mpc_in.floor_pos << std::endl;
 
-  msg_mpc_in.drone_state.intrinsics = getInstrinscsMsg(focal_length_next_state, focus_distance, aperture);
+  msg_mpc_in.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
 
   // initalize mesage
   for (int target = 0; target < targets_names.size(); target++)
@@ -661,6 +650,18 @@ void depthReceivedCallback(const sensor_msgs::Image& msg)
   }
 }
 
+void readGimbalOrientationCallback(const airsim_ros_pkgs::GimbalAngleQuatCmd::ConstPtr& msg)
+{
+  drone_pose.orientation = msg->orientation;
+}
+
+void readIntrinsicsCallback(const airsim_ros_pkgs::IntrinsicsCamera::ConstPtr& msg)
+{
+  focal_length = msg->focal_length;
+  aperture = msg->aperture;
+  focus_distance = msg->focus_distance / 100;
+}
+
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cinempc_main");
@@ -714,17 +715,18 @@ int main(int argc, char** argv)
 
   perception_publisher = n.advertise<cinempc::PerceptionMsg>("/cinempc/perception_in", 10);
 
-  fpv_intrinsics_publisher = n.advertise<airsim_ros_pkgs::IntrinsicsCamera>("/airsim_node/drone_1/set_intrinsics", 10);
-  fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance, aperture));
+  fpv_intrinsics_subscriber = n.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
+      "/airsim_node/drone_1/set_intrinsics", 1000, boost::bind(&readIntrinsicsCallback, _1));
 
-  gimbal_rotation_publisher =
-      n.advertise<airsim_ros_pkgs::GimbalAngleQuatCmd>("/airsim_node/gimbal_angle_quat_cmd", 10);
+  low_level_control_publisher = n.advertise<cinempc::LowLevelControl>("cinempc/low_level_control", 10);
+
+  gimbal_rotation_subscriber = n.subscribe<airsim_ros_pkgs::GimbalAngleQuatCmd>(
+      "/airsim_node/gimbal_angle_quat_cmd", 1000, boost::bind(&readGimbalOrientationCallback, _1));
 
   new_MPC_state_publisher = n.advertise<cinempc::MPCIncomingState>("cinempc/current_state", 10);
 
   cinempc_calculate_new_states_timer_ = n.createTimer(ros::Duration(mpc_dt), boost::bind(publishNewStateToMPC, _1, n));
 
-  move_on_path_publisher = n.advertise<airsim_ros_pkgs::MoveOnPath>("/airsim_node/drone_1/move_on_path", 10);
   // init camera pose
   airsim_ros_pkgs::GimbalAngleQuatCmd msg;
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, drone_start_yaw);
@@ -732,103 +734,12 @@ int main(int argc, char** argv)
   drone_pose.orientation = q;
   drone_pose_next_state.orientation = q;
   drone_pose_next_state = drone_pose;
-  gimbal_rotation_publisher.publish(msg);
 
   double yaw_step = 0, pitch_step = 0, focal_step = 0, ap_step;
 
-  ros::Rate loop_rate(freq_loop);
+  ros::Rate loop_rate(5);
   while (ros::ok() && !stop)
   {
-    if (focal_length_spline.get_x().size() != 0 && low_cost == false)
-    {
-      double diff_yaw, diff_pitch, diff_focal, diff_ap;
-      if (index_splines == 0)
-      {
-        diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
-        diff_pitch = pitch_vector.at(1) - pitch_vector.at(0);
-        diff_focal = focal_length_vector.at(1) - focal_length_vector.at(0);
-        diff_focal = focal_length_vector.at(1) - focal_length_vector.at(0);
-        diff_ap = aperture_vector.at(1) - aperture_vector.at(0);
-
-        yaw_step = diff_yaw / steps_each_dt;
-        pitch_step = diff_pitch / steps_each_dt;
-        focal_step = diff_focal / steps_each_dt;
-        ap_step = diff_ap / steps_each_dt;
-
-        if (abs(diff_yaw) < 0.001)
-        {
-          yaw_step = 0;
-        }
-        if (abs(diff_pitch) < 0.001)
-        {
-          pitch_step = 0;
-        }
-        if (abs(diff_focal) < 0.5)
-        {
-          focal_step = 0;
-        }
-      }
-      focal_length = focal_length + focal_step;
-      focus_distance = focus_distance_spline(interval * index_splines);
-      aperture = aperture + ap_step;
-
-      // focal_length = focal_length + focal_step;
-      // focus_distance = focus_distance_spline(interval * index_splines);
-      // aperture = aperture_spline(interval * index_splines);
-
-      fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
-
-      // plot_values.intrinsics_camera = getInstrinscsMsg(focal_length, focus_distance * 100, aperture);
-
-      // double roll_gimbal = roll_spline(interval * index_splines);
-
-      // double roll_gimbal = roll_spline(interval * index_splines);
-
-      // double yaw_gimbal = yaw_spline(interval * index_splines);
-      // double pitch_gimbal = pitch_spline(interval * index_splines);
-
-      // if (index_splines == 0)
-      // {
-      //   double diff_pitch = pitch_vector.at(1) - pitch_vector.at(0);
-      //   if (abs(diff_pitch) < 0.001)
-      //   {
-      //     pitch_gimbal = pitch_vector.at(0);
-      //   }
-      //   double diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
-      //   if (abs(diff_yaw) < 0.001)
-      //   {
-      //     yaw_gimbal = yaw_vector.at(0);
-      //   }
-      // }
-
-      // double yaw_gimbal = yaw_spline(interval * index_splines);
-
-      // double yaw_gimbal_result = yaw_gimbal + yaw_step;
-      // double pitch_gimbal_result = pitch_gimbal + pitch_step;
-
-      yaw_gimbal = yaw_gimbal + yaw_step;
-      pitch_gimbal = pitch_gimbal + pitch_step;
-
-      // round rotation to 4 decimals
-      // int yaw_gimbal_int = round(yaw_gimbal * 10000);
-      // int pitch_gimbal_int = round(pitch_gimbal * 10000);
-
-      // yaw_gimbal = yaw_gimbal_int / 10000.0;
-      // pitch_gimbal = pitch_gimbal_int / 10000.0;
-
-      geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
-      // std::cout << "yaw1:" << cinempc::quatToRPY<double>(drone_pose.orientation).yaw << std::endl;
-      // std::cout << "pitch:" << pitch_gimbal << std::endl;
-      // std::cout << "yaw:" << yaw_gimbal << std::endl;
-
-      airsim_ros_pkgs::GimbalAngleQuatCmd msg;
-      msg.orientation = q;
-      drone_pose.orientation = q;
-
-      gimbal_rotation_publisher.publish(msg);
-    }
-
-    index_splines++;
     loop_rate.sleep();
     ros::spinOnce();
   }

@@ -50,6 +50,7 @@ add_message_files(
   MPCResult.msg
   MPCResultPlotValues.msg
   PlotValues.msg
+  LowLevelControl.msg
   TargetStateMPC.msg
   Constraints.msg
   Weights.msg
@@ -111,6 +112,10 @@ target_link_libraries(cinempc_user_node ${catkin_LIBRARIES} )
 add_executable(cinempc_main_node src/cinempc_main_node.cpp src/kalman.cpp) 
 add_dependencies(cinempc_main_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_main_node ${catkin_LIBRARIES} )
+
+add_executable(cinempc_low_level_node src/cinempc_low_level_node.cpp src/kalman.cpp) 
+add_dependencies(cinempc_low_level_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_low_level_node ${catkin_LIBRARIES} )
 
 
 install(TARGETS

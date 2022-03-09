@@ -10,6 +10,7 @@
 	<node name="scene_node" pkg="cinempc" type="scene_node"  output="screen"></node>
 	<node name="cinempc_perception_node" pkg="cinempc" type="cinempc_perception_node"  output="screen"></node>
 	<node name="change_sequence_node" pkg="cinempc" type="change_sequence_node"  output="screen"></node>
+	<node name="cinempc_low_level_node" pkg="cinempc" type="cinempc_low_level_node"  output="screen"></node>
 	<node name="cinempc_user_node" pkg="cinempc" type="cinempc_user_node"  output="screen">
 	</node>
 </launch>
