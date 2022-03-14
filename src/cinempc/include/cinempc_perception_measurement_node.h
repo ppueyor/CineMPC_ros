@@ -1,4 +1,4 @@
-#include <QuaternionConverters.h>
+#include <CineMPCCommon.h>
 #include <cinempc/MeasurementIn.h>
 #include <cinempc/MeasurementOut.h>
 #include <cinempc/TargetState.h>

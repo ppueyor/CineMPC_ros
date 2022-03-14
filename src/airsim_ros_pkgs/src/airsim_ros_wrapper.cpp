@@ -101,9 +101,10 @@ void AirsimROSWrapper::initialize_airsim()
 void AirsimROSWrapper::initialize_ros()
 {
   // ros params
-  double update_airsim_control_every_n_sec;
+  double update_airsim_control_every_n_sec, update_target_position_every_n_sec;
   nh_private_.getParam("is_vulkan", is_vulkan_);
   nh_private_.getParam("update_airsim_control_every_n_sec", update_airsim_control_every_n_sec);
+  nh_private_.getParam("update_target_position_every_n_sec", update_target_position_every_n_sec);
   nh_private_.getParam("publish_clock", publish_clock_);
   nh_private_.param("world_frame_id", world_frame_id_, world_frame_id_);
   odom_frame_id_ = world_frame_id_ == AIRSIM_FRAME_ID ? AIRSIM_ODOM_FRAME_ID : ENU_ODOM_FRAME_ID;
@@ -118,6 +119,9 @@ void AirsimROSWrapper::initialize_ros()
   create_ros_pubs_from_settings_json();
   airsim_control_update_timer_ = nh_private_.createTimer(ros::Duration(update_airsim_control_every_n_sec),
                                                          &AirsimROSWrapper::drone_state_timer_cb, this);
+
+  airsim_targets_update_timer_ = nh_private_.createTimer(ros::Duration(update_target_position_every_n_sec),
+                                                         &AirsimROSWrapper::targets_state_timer_cb, this);
 }
 
 // XmlRpc::XmlRpcValue can't be const in this case
@@ -187,9 +191,11 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
       drone->vel_cmd_world_frame_sub = nh_private_.subscribe<airsim_ros_pkgs::VelCmd>(
           curr_vehicle_name + "/vel_cmd_world_frame", 1,
           boost::bind(&AirsimROSWrapper::vel_cmd_world_frame_cb, this, _1, vehicle_ros->vehicle_name));
+
       drone->move_on_path_sub = nh_private_.subscribe<airsim_ros_pkgs::MoveOnPath>(
           curr_vehicle_name + "/move_on_path", 1,
           boost::bind(&AirsimROSWrapper::move_on_path_cb, this, _1, vehicle_ros->vehicle_name));
+
       drone->takeoff_srvr =
           nh_private_.advertiseService<airsim_ros_pkgs::Takeoff::Request, airsim_ros_pkgs::Takeoff::Response>(
               curr_vehicle_name + "/takeoff",
@@ -653,6 +659,7 @@ void AirsimROSWrapper::vel_cmd_group_body_frame_cb(const airsim_ros_pkgs::VelCmd
   }
 }
 
+// void AirsimROSWrapper::vel_cmd_body_frame_cb(const airsim_ros_pkgs::VelCmd& msg, const std::string& vehicle_name)
 void AirsimROSWrapper::move_on_path_cb(const airsim_ros_pkgs::MoveOnPath::ConstPtr& msg,
                                        const std::string& vehicle_name)
 {
@@ -1179,10 +1186,22 @@ void AirsimROSWrapper::drone_state_timer_cb(const ros::TimerEvent& event)
     // publish vehicle state, odom, and all basic sensor types
     publish_vehicle_state();
 
-    publish_target_state();
-
     // send any commands out to the vehicles
     update_commands();
+  }
+  catch (rpc::rpc_error& e)
+  {
+    std::cout << "error" << std::endl;
+    std::string msg = e.get_error().as<std::string>();
+    std::cout << "Exception raised by the API:" << std::endl << msg << std::endl;
+  }
+}
+
+void AirsimROSWrapper::targets_state_timer_cb(const ros::TimerEvent& event)
+{
+  try
+  {
+    publish_target_state();
   }
   catch (rpc::rpc_error& e)
   {

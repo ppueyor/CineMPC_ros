@@ -250,8 +250,9 @@ private:
   };
 
   /// ROS timer callbacks
-  void img_response_timer_cb(const ros::TimerEvent &event);  // update images from airsim_client_ every nth sec
-  void drone_state_timer_cb(const ros::TimerEvent &event);   // update drone state from airsim_client_ every nth sec
+  void img_response_timer_cb(const ros::TimerEvent &event);   // update images from airsim_client_ every nth sec
+  void drone_state_timer_cb(const ros::TimerEvent &event);    // update drone state from airsim_client_ every nth sec
+  void targets_state_timer_cb(const ros::TimerEvent &event);  // update drone state from airsim_client_ every nth sec
   void lidar_timer_cb(const ros::TimerEvent &event);
 
   /// ROS subscriber callbacks
@@ -268,6 +269,7 @@ private:
                          const std::string &vehicle_name,
                          const std::string &camera_name);  //, const std::string& vehicle_name, const std::string&
                                                            // camera_name);
+
   void move_on_path_cb(const airsim_ros_pkgs::MoveOnPath::ConstPtr &move_on_path_cmd_msg,
                        const std::string &vehicle_name);  //, const std::string& vehicle_name, const std::string&
                                                           // camera_name);
@@ -436,6 +438,7 @@ private:
   /// ROS Timers.
   ros::Timer airsim_img_response_timer_;
   ros::Timer airsim_control_update_timer_;
+  ros::Timer airsim_targets_update_timer_;
   ros::Timer airsim_lidar_update_timer_;
 
   typedef std::pair<std::vector<ImageRequest>, std::string> airsim_img_request_vehicle_name_pair;

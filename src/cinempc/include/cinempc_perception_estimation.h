@@ -1,4 +1,4 @@
-#include <QuaternionConverters.h>
+#include <CineMPCCommon.h>
 #include <cinempc/EstimationIn.h>
 #include <cinempc/GetNNextTargetPoses.h>
 

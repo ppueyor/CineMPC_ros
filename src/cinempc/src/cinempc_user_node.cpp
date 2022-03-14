@@ -1,5 +1,4 @@
-
-#include <QuaternionConverters.h>
+#include <CineMPCCommon.h>
 #include <cinempc/GetUserConstraints.h>
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>

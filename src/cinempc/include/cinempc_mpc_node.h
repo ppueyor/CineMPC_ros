@@ -1,7 +1,7 @@
 #ifndef MPC_H
 #define MPC_H
 
-#include <QuaternionConverters.h>
+#include <CineMPCCommon.h>
 #include <airsim_ros_pkgs/Takeoff.h>
 #include <cinempc/DroneAndCameraState.h>
 #include <cinempc/MPCIncomingState.h>
