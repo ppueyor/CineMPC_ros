@@ -1,6 +1,5 @@
 #include "cinempc_main_node.h"
 
-using namespace cv;
 using namespace std;
 using namespace std::chrono;
 
@@ -12,13 +11,9 @@ cinempc::PlotValues plot_values;
 float vel_x, vel_y, vel_z;
 float focal_length = 35, focus_distance = 10000, aperture = 22;
 
-int index_splines = 0;
 bool noise = true;
 float sequence = 1;
 int change_sequence_index = 0;
-double steps_each_dt = 40;
-double interval = mpc_dt / steps_each_dt;
-double freq_loop = 1 / interval;
 bool stop = false, low_cost = false;
 
 double yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
@@ -29,14 +24,15 @@ ros::Time start_measure;
 std::stringstream logErrorFileName;
 std::ofstream logFile;
 
-cinempc::PerceptionMsg perception_msg;
+cinempc::MeasurementIn perception_meas_in_msg;
 
+airsim_ros_pkgs::IntrinsicsCamera intrinsics_next_state;
 float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
 geometry_msgs::Pose drone_pose_when_called;
 
-std::vector<float> roll_vector, yaw_vector, pitch_vector, focal_length_vector, focus_distance_vector, aperture_vector;
-tk::spline focal_length_spline, focus_distance_spline, aperture_spline, roll_spline, yaw_spline, pitch_spline;
+std::vector<float> times_vector, roll_vector, yaw_vector, pitch_vector, focal_length_vector, focus_distance_vector,
+    aperture_vector;
 
 static std::default_random_engine generator;
 void myPoseMsgToTF(const geometry_msgs::Pose& msg, tf2::Transform& bt)
@@ -47,8 +43,8 @@ void myPoseMsgToTF(const geometry_msgs::Pose& msg, tf2::Transform& bt)
 
 void initializePerceptionMsg()
 {
-  perception_msg.depth = sensor_msgs::Image();
-  perception_msg.rgb = sensor_msgs::Image();
+  perception_meas_in_msg.depth = sensor_msgs::Image();
+  perception_meas_in_msg.rgb = sensor_msgs::Image();
 }
 
 void changeSeqCallback(const std_msgs::Float32::ConstPtr& msg)
@@ -130,6 +126,8 @@ void readDroneStateCallback(const nav_msgs::Odometry::ConstPtr& msg)
   drone_pose.position.y = drone_y;
   drone_pose.position.z = drone_z;
 
+  plot_values.drone_position_gt = msg->pose.pose.position;
+
   // drone_pose.orientation = msg->pose.pose.orientation;
 }
 
@@ -160,18 +158,18 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   {
     ros::Time end_measure = ros::Time::now();
     ros::Duration time_measure = end_measure - start_measure;
-    double time_s = time_measure.toSec();
-    cinempc::KFIn kf_in_msg;
-    kf_in_msg.world_pose_target = wTtop_measure;
-    kf_in_msg.target_index = target_index;
-    kf_in_msg.time_s = time_s;
-    kf_in_msg.measure = true;
-    kf_in_publisher.publish(kf_in_msg);
+    double time_s = time_measure.toSec() / sim_speed;
+    cinempc::EstimationIn estimation_in_msg;
+    estimation_in_msg.world_pose_target = wTtop_measure;
+    estimation_in_msg.target_index = target_index;
+    estimation_in_msg.time_s = time_s;
+    estimation_in_msg.measure = true;
+    estimation_in_publisher.publish(estimation_in_msg);
     start_measure = ros::Time::now();
   }
 }
 
-void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& msg)
+void readTargetStatePerceptionCallback(const cinempc::MeasurementOut::ConstPtr& msg)
 {
   // std::cout << "pose:" << msg->pose_top.position.x << std::endl;
   // world position target
@@ -179,7 +177,7 @@ void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& m
   std::vector<geometry_msgs::Point> state;
   ros::Time end_measure = ros::Time::now();
   ros::Duration time_measure = end_measure - start_measure;
-  double time_s = time_measure.toSec();
+  double time_s = time_measure.toSec() / sim_speed;
 
   if (msg->targets_found > 0)
   {
@@ -191,12 +189,12 @@ void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& m
             msg->drone_state.drone_pose, target_state.pose_top, false);
         wTtop_measure.position.z += 0.2;  // face
 
-        cinempc::KFIn kf_in_msg;
-        kf_in_msg.world_pose_target = wTtop_measure;
-        kf_in_msg.target_index = 0;
-        kf_in_msg.time_s = time_s;
-        kf_in_msg.measure = true;
-        kf_in_publisher.publish(kf_in_msg);
+        cinempc::EstimationIn estimation_in_msg;
+        estimation_in_msg.world_pose_target = wTtop_measure;
+        estimation_in_msg.target_index = 0;
+        estimation_in_msg.time_s = time_s;
+        estimation_in_msg.measure = true;
+        estimation_in_publisher.publish(estimation_in_msg);
 
         // TODO
         // state = updateKalmanWithNewMeasureAndGetState(wTtop_measure, 0, time_s);
@@ -211,11 +209,11 @@ void readTargetStatePerceptionCallback(const cinempc::PerceptionOut::ConstPtr& m
     // update the times of KF even if there is no measure
     for (int i = 0; i < targets_names.size(); i++)
     {
-      cinempc::KFIn kf_in_msg;
-      kf_in_msg.time_s = time_s;
-      kf_in_msg.target_index = i;
-      kf_in_msg.measure = false;
-      kf_in_publisher.publish(kf_in_msg);
+      cinempc::EstimationIn estimation_in_msg;
+      estimation_in_msg.time_s = time_s;
+      estimation_in_msg.target_index = i;
+      estimation_in_msg.measure = false;
+      estimation_in_publisher.publish(estimation_in_msg);
     }
   }
 
@@ -241,13 +239,14 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   yaw_vector.clear();
   roll_vector.clear();
   pitch_vector.clear();
+  times_vector.clear();
 
   int index_mpc = 0;
 
   // plot values
   ros::Time end_log = ros::Time::now();
   ros::Duration diff = end_log - start_log;
-  plot_values.time_ms = diff.toNSec() / 1000000;
+  plot_values.time_ms = diff.toNSec() / (1000000 * sim_speed);
   plot_values.mpc_plot_values = msg->plot_values;
 
   // std::cout << msg->cost << std::endl;
@@ -264,6 +263,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     focal_length_vector.insert(focal_length_vector.begin(), focal_length);
     focus_distance_vector.insert(focus_distance_vector.begin(), focus_distance);
     aperture_vector.insert(aperture_vector.begin(), aperture);
+    times_vector.push_back(0);
 
     index_mpc++;
 
@@ -272,6 +272,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     while (index_mpc < MPC_N)
     {
       cinempc::DroneAndCameraState cine_mpc_result = msg->mpc_n_states.at(index_mpc);
+      times_vector.push_back(mpc_dt * index_mpc);
 
       focal_length_vector.insert(focal_length_vector.begin() + index_mpc, cine_mpc_result.intrinsics.focal_length);
 
@@ -299,9 +300,9 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
       // logPosition(world_T_result.position, to_string(index_mpc));
 
-      if (index_mpc == 2)
+      if (index_mpc == 1)
       {
-        // focal_length_next_state = cine_mpc_result.intrinsics.focal_length;
+        intrinsics_next_state = cine_mpc_result.intrinsics;
         drone_pose_next_state = world_T_result;
         vel_x = cine_mpc_result.velocity.x;
         vel_y = cine_mpc_result.velocity.y;
@@ -321,38 +322,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
       index_mpc++;
     }
 
-    // std::cout << "NEW POSE:" << cinempc::quatToRPY<double>(drone_pose.orientation).yaw << std::endl;
-
-    for (double focal_l : focal_length_vector)
-    {
-      // std::cout << "focal:" << focal_l << std::endl;
-    }
-
-    for (double focal_l : focus_distance_vector)
-    {
-      // std::cout << "focus:" << focal_l << std::endl;
-    }
-
-    for (double focal_l : aperture_vector)
-    {
-      // std::cout << "ap:" << focal_l << std::endl;
-    }
-    for (double focal_l : yaw_vector)
-    {
-      // std::cout << "yaw:" << focal_l << std::endl;
-    }
-
-    for (double focal_l : pitch_vector)
-    {
-      // std::cout << "pitch:" << focal_l << std::endl;
-    }
-    for (double focal_l : roll_vector)
-    {
-      // std::cout << "roll:" << focal_l << std::endl;
-    }
-    index_splines = 0;
-    // focal_length_spline.set_points(times_vector, focal_length_vector);
-
     cinempc::LowLevelControl low_level_control_msg;
 
     low_level_control_msg.yaw_vector = yaw_vector;
@@ -360,6 +329,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     low_level_control_msg.focal_length_vector = focal_length_vector;
     low_level_control_msg.aperture_vector = aperture_vector;
     low_level_control_msg.focus_distance_vector = focus_distance_vector;
+    low_level_control_msg.times_vector = times_vector;
 
     // move on path
     airsim_ros_pkgs::MoveOnPath msg_move_on_path;
@@ -409,7 +379,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 
   // std::cout << "floor_pos:" << msg_mpc_in.floor_pos << std::endl;
 
-  msg_mpc_in.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
+  msg_mpc_in.drone_state.intrinsics = intrinsics_next_state;
 
   // initalize mesage
   for (int target = 0; target < targets_names.size(); target++)
@@ -483,12 +453,12 @@ void rgbReceivedCallback(const sensor_msgs::Image& msg)
 {
   if (use_perception)
   {
-    perception_msg.rgb = msg;
-    if (perception_msg.depth.height != 0)
+    perception_meas_in_msg.rgb = msg;
+    if (perception_meas_in_msg.depth.height != 0)
     {
-      perception_msg.drone_state.drone_pose = drone_pose;
-      perception_msg.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
-      perception_publisher.publish(perception_msg);
+      perception_meas_in_msg.drone_state.drone_pose = drone_pose;
+      perception_meas_in_msg.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
+      perception_meas_publisher.publish(perception_meas_in_msg);
       initializePerceptionMsg();
     }
   }
@@ -503,12 +473,12 @@ void depthReceivedCallback(const sensor_msgs::Image& msg)
 {
   if (use_perception)
   {
-    perception_msg.depth = msg;
-    if (perception_msg.rgb.height != 0)
+    perception_meas_in_msg.depth = msg;
+    if (perception_meas_in_msg.rgb.height != 0)
     {
-      perception_msg.drone_state.drone_pose = drone_pose;
-      perception_msg.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
-      perception_publisher.publish(perception_msg);
+      perception_meas_in_msg.drone_state.drone_pose = drone_pose;
+      perception_meas_in_msg.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
+      perception_meas_publisher.publish(perception_meas_in_msg);
       initializePerceptionMsg();
     }
   }
@@ -534,7 +504,7 @@ int main(int argc, char** argv)
 
   auto const now = std::chrono::system_clock::now();
   auto const in_time_t = std::chrono::system_clock::to_time_t(now);
-  logErrorFileName << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/logs/error_pos_"
+  logErrorFileName << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/logs/Tuareg/error_pos_"
                    << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << ".csv";
   logFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
 
@@ -547,6 +517,10 @@ int main(int argc, char** argv)
   ros::ServiceClient service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
   airsim_ros_pkgs::Takeoff srv;
   srv.request.waitOnLastTask = false;
+
+  intrinsics_next_state.aperture = 22;
+  intrinsics_next_state.focal_length = 35;
+  intrinsics_next_state.focus_distance = 1000;
 
   // service_take_off.call(srv);
 
@@ -568,8 +542,8 @@ int main(int argc, char** argv)
   ros::Subscriber targets_states_subscriber_perception;
   if (use_perception)
   {
-    targets_states_subscriber_perception = n.subscribe<cinempc::PerceptionOut>(
-        "/cinempc/perception_output", 1000, boost::bind(&readTargetStatePerceptionCallback, _1));
+    targets_states_subscriber_perception = n.subscribe<cinempc::MeasurementOut>(
+        "/cinempc/perception_measurement_out", 1000, boost::bind(&readTargetStatePerceptionCallback, _1));
   }
   for (int i = 0; i < targets_names.size(); i++)
   {
@@ -577,14 +551,14 @@ int main(int argc, char** argv)
         "airsim_node/" + targets_names.at(i) + "/get_pose", 1000, boost::bind(&readTargetStateCallback, _1, i)));
   }
 
-  perception_publisher = n.advertise<cinempc::PerceptionMsg>("/cinempc/perception_in", 10);
+  perception_meas_publisher = n.advertise<cinempc::MeasurementIn>("/cinempc/perception_measurement_in", 10);
 
   fpv_intrinsics_subscriber = n.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
       "/airsim_node/drone_1/set_intrinsics", 1000, boost::bind(&readIntrinsicsCallback, _1));
 
   low_level_control_publisher = n.advertise<cinempc::LowLevelControl>("cinempc/low_level_control", 10);
 
-  kf_in_publisher = n.advertise<cinempc::KFIn>("cinempc/kf_in", 10);
+  estimation_in_publisher = n.advertise<cinempc::EstimationIn>("cinempc/estimation_in", 10);
 
   gimbal_rotation_subscriber = n.subscribe<airsim_ros_pkgs::GimbalAngleQuatCmd>(
       "/airsim_node/gimbal_angle_quat_cmd", 1000, boost::bind(&readGimbalOrientationCallback, _1));
@@ -610,8 +584,8 @@ int main(int argc, char** argv)
     ros::spinOnce();
   }
   logFile.close();
-  int a = system("rm /home/pablo/Documents/journal/matlab/log_file.csv");
-  string str1 = "cp " + logErrorFileName.str() + "  /home/pablo/Documents/journal/matlab/log_file.csv";
+  int a = system("rm /home/pablo/Documents/journal/matlab/dolly_zoom/log_file.csv");
+  string str1 = "cp " + logErrorFileName.str() + "  /home/pablo/Documents/journal/matlab/dolly_zoom/log_file.csv";
   a = system(str1.c_str());
   return 0;
 }

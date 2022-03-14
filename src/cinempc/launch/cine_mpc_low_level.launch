@@ -1,0 +1,4 @@
+<launch>
+	<node name="cinempc_low_level_node" pkg="cinempc" type="cinempc_low_level_node"  output="screen">
+	</node>
+</launch>

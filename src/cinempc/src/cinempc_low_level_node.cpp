@@ -12,7 +12,7 @@ int index_splines = -1;
 bool noise = true;
 float sequence = 1;
 int change_sequence_index = 0;
-double steps_each_dt = 40;
+double steps_each_dt = 50;
 double interval = mpc_dt / steps_each_dt;
 double freq_loop = 1 / interval;
 bool stop = false, low_cost = false;
@@ -24,11 +24,39 @@ ros::Time start_measure;
 
 std::stringstream logErrorFileName;
 
-float focal_length_next_state = 35;
-;
-
+tk::spline focal_length_spline, focus_distance_spline, aperture_spline, roll_spline, yaw_spline, pitch_spline;
 std::vector<float> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
 	pitch_vector;
+std::vector<float> focal_length_interpolated;
+
+float interpolate(vector<float>& xData, vector<float>& yData, float x, bool extrapolate)
+{
+  int size = xData.size();
+
+  int i = 0;				 // find left end of interval for interpolation
+  if (x >= xData[size - 2])	 // special case: beyond right end
+  {
+	i = size - 2;
+  }
+  else
+  {
+	while (x > xData[i + 1])
+	  i++;
+  }
+  float xL = xData[i], yL = yData[i], xR = xData[i + 1],
+		yR = yData[i + 1];	// points on either side (unless beyond ends)
+  if (!extrapolate)			// if beyond ends of array and not extrapolating
+  {
+	if (x < xL)
+	  yR = yL;
+	if (x > xR)
+	  yL = yR;
+  }
+
+  float dydx = (yR - yL) / (xR - xL);  // gradient
+
+  return yL + dydx * (x - xL);	// linear interpolation
+}
 
 void myPoseMsgToTF(const geometry_msgs::Pose& msg, tf2::Transform& bt)
 {
@@ -36,13 +64,34 @@ void myPoseMsgToTF(const geometry_msgs::Pose& msg, tf2::Transform& bt)
 					  tf2::Vector3(msg.position.x, msg.position.y, msg.position.z));
 }
 
+std::vector<double> convertFloatToDoubleVector(std::vector<float> float_vector)
+{
+  std::vector<double> double_vec(float_vector.begin(), float_vector.end());
+  return double_vec;
+}
 void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
 {
+  index_splines = -1;
   focal_length_vector = msg->focal_length_vector;
+  focal_length_vector.at(0) = focal_length;
   aperture_vector = msg->aperture_vector;
   pitch_vector = msg->pitch_vector;
   yaw_vector = msg->yaw_vector;
+  yaw_vector.at(0) = yaw_gimbal;
+  pitch_vector.at(0) = pitch_gimbal;
+
   focus_distance_vector = msg->focus_distance_vector;
+  times_vector = msg->times_vector;
+
+  focus_distance_spline.set_points(convertFloatToDoubleVector(msg->times_vector),
+								   convertFloatToDoubleVector(msg->focus_distance_vector));
+
+  aperture_spline.set_points(convertFloatToDoubleVector(msg->times_vector),
+							 convertFloatToDoubleVector(msg->aperture_vector));
+
+  yaw_spline.set_points(convertFloatToDoubleVector(msg->times_vector), convertFloatToDoubleVector(msg->yaw_vector));
+
+  pitch_spline.set_points(convertFloatToDoubleVector(msg->times_vector), convertFloatToDoubleVector(msg->pitch_vector));
 
   double distance = cinempc::calculateDistanceTo3DPoint<double>(
 	  msg->move_on_path_msg.positions.at(0).x, msg->move_on_path_msg.positions.at(0).y,
@@ -88,45 +137,16 @@ int main(int argc, char** argv)
 
   double yaw_step = 0, pitch_step = 0, focal_step = 0, focus_step = 0, ap_step;
 
-  ros::Rate loop_rate(freq_loop);
+  ros::Rate loop_rate(freq_loop * sim_frequency);
   while (ros::ok() && !stop)
   {
-	if (index_splines != -1)
+	if (index_splines != -1 && index_splines < steps_each_dt)
 	{
-	  double diff_yaw, diff_pitch, diff_focal, diff_focus, diff_ap;
-	  if (index_splines == 0)
-	  {
-		diff_focal = focal_length_vector.at(1) - focal_length_vector.at(0);
-		diff_ap = aperture_vector.at(1) - aperture_vector.at(0);
-		diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
-		diff_pitch = pitch_vector.at(1) - pitch_vector.at(0);
-		diff_focus = focus_distance_vector.at(1) - focus_distance_vector.at(0);
-
-		yaw_step = diff_yaw / steps_each_dt;
-		pitch_step = diff_pitch / steps_each_dt;
-		focal_step = diff_focal / steps_each_dt;
-		ap_step = diff_ap / steps_each_dt;
-		focus_step = diff_focus / steps_each_dt;
-
-		if (abs(diff_yaw) < 0.001)
-		{
-		  yaw_step = 0;
-		}
-		if (abs(diff_pitch) < 0.001)
-		{
-		  pitch_step = 0;
-		}
-		if (abs(diff_focal) < 0.5)
-		{
-		  focal_step = 0;
-		}
-	  }
-
-	  focal_length = focal_length + focal_step;
-	  yaw_gimbal = yaw_gimbal + yaw_step;
-	  pitch_gimbal = pitch_gimbal + pitch_step;
-	  aperture = aperture + ap_step;
-	  focus_distance = focus_distance + focus_step;
+	  focal_length = interpolate(times_vector, focal_length_vector, interval * index_splines, true);
+	  focus_distance = interpolate(times_vector, focus_distance_vector, interval * index_splines, true);
+	  aperture = interpolate(times_vector, aperture_vector, interval * index_splines, true);
+	  yaw_gimbal = interpolate(times_vector, yaw_vector, interval * index_splines, true);
+	  pitch_gimbal = interpolate(times_vector, pitch_vector, interval * index_splines, true);
 
 	  geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
 

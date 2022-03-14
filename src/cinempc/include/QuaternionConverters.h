@@ -405,7 +405,13 @@ std::string plotValues(cinempc::PlotValues plot_values, bool header)
            << ","
            << "im_v_center_d"
            << ","
-           << "im_v_down_d" << std::endl;
+           << "im_v_down_d"
+           << ","
+           << "drone_x"
+           << ","
+           << "drone_y"
+           << ","
+           << "drone_z" << std::endl;
   }
   else
   {
@@ -436,7 +442,8 @@ std::string plotValues(cinempc::PlotValues plot_values, bool header)
            << plot_values.constraints.targets_d_star.at(0) << "," << plot_values.constraints.targets_im_top_star.at(0).x
            << "," << plot_values.constraints.targets_im_top_star.at(0).y << ","
            << plot_values.constraints.targets_im_center_star.at(0).y << ","
-           << plot_values.constraints.targets_im_bottom_star.at(0).y << std::endl;
+           << plot_values.constraints.targets_im_bottom_star.at(0).y << "," << plot_values.drone_position_gt.x << ","
+           << plot_values.drone_position_gt.y << "," << plot_values.drone_position_gt.z << std::endl;
   }
   return result.str();
 }

@@ -1,6 +1,6 @@
 #include <cppad/cppad.hpp>
 
-#include "cinempc_solver_node.h"
+#include "cinempc_mpc_node.h"
 #include "cppad/ipopt/solve.hpp"
 #include "opencv2/features2d/features2d.hpp"
 #include "opencv2/highgui.hpp"
@@ -266,12 +266,6 @@ public:
 		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
 		JFoc += constraints.weights.w_focal * cost_foc;
 	  }
-	  // to try to achieve a static focal distance //dolly
-	  else if (constraints.weights.w_focal < 0)
-	  {
-		AD<double> cost_foc = CppAD::pow(vars[vel_focal_length_start + t] - 0, 2);
-		JFoc += 10 * cost_foc;
-	  }
 
 	  fg[0] += JDoF + JFoc;	 // one time /camera
 	  for (int j = 0; j < target_states.size(); j++)
@@ -332,20 +326,6 @@ public:
 			weight = weight * 0.01;
 		  }
 		  Jim += weight * cost_pixel_v_target_up;
-
-		  //     AD<double> weight = constraints.weights.w_img_targets.at(j).y_top;
-
-		  //   AD<double> cost_pixel_v_target_up =
-		  // 	  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_top_star.at(j).y, 2);
-
-		  //   AD<double> cost_pixel_v_target_up_tol = cost_pixel_v_target_up - 25;
-
-		  //   if (cost_pixel_v_target_up_tol < 0)
-		  //   {
-		  // 	cost_pixel_v_target_up_tol = 0.1;
-		  //   }
-
-		  //   Jim += weight * cost_pixel_v_target_up_tol;
 		}
 
 		if (constraints.weights.w_img_targets.at(j).y_center > 0)
@@ -363,9 +343,15 @@ public:
 
 		if (constraints.weights.w_img_targets.at(j).y_bottom > 0)
 		{
-		  AD<double> cost_pixel_v_target_down =
+		  AD<double> weight = constraints.weights.w_img_targets.at(j).y_bottom;
+
+		  AD<double> cost_pixel_v_target_bottom =
 			  CppAD::pow(current_pixel_v_target_down - constraints.targets_im_bottom_star.at(j).y, 2);
-		  Jim += constraints.weights.w_img_targets.at(j).y_bottom * cost_pixel_v_target_down;
+		  if (cost_pixel_v_target_bottom < 49)
+		  {
+			weight = weight * 0.01;
+		  }
+		  Jim += weight * cost_pixel_v_target_bottom;
 		}
 
 		// Cost_P

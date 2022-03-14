@@ -1,11 +1,8 @@
-#include "QuaternionConverters.h"
-#include "cinempc_perception_node.h"
-#include "common/common_utils/FileSystem.hpp"
-#include "common/common_utils/Utils.hpp"
+#include "cinempc_perception_measurement_node.h"
 
 using namespace cv;
 using namespace std;
-int i = 0;
+
 ros::Time start_log;
 std::stringstream folder_name, name_depth, name_rgb, name_perception;
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
@@ -68,7 +65,7 @@ float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box
 }
 
 cinempc::TargetState calculateTarget(DarkHelp::PredictionResult result, cv_bridge::CvImagePtr depth_cv_ptr,
-                                     const cinempc::PerceptionMsg& msg_in)
+                                     const cinempc::MeasurementIn& msg_in)
 {
   Rect rect1 = result.rect;
   float target_u_center = rect1.x + (rect1.width / 2);
@@ -90,7 +87,7 @@ cinempc::TargetState calculateTarget(DarkHelp::PredictionResult result, cv_bridg
   return target_state;
 }
 
-void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
+void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
 {
   int targetsFound = 0;
   std::vector<cinempc::TargetState> targets_state;
@@ -133,7 +130,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
 
   ros::Time end_log = ros::Time::now();
   ros::Duration diff = end_log - start_log;
-  int time_s = diff.toNSec() / (1000000000 * 1);
+  int time_s = diff.toNSec() / (1000000000 * sim_speed);
 
   std::stringstream depth_name, rgb_name, perception_name;
   depth_name << folder_name.str() << time_s << "_depth"
@@ -151,7 +148,7 @@ void newImageReceivedCallback(const cinempc::PerceptionMsg& msg)
   // ".jpg",
   //             output);
 
-  cinempc::PerceptionOut perception_out_msg;
+  cinempc::MeasurementOut perception_out_msg;
   perception_out_msg.targets_found = targetsFound;
   perception_out_msg.drone_state.drone_pose = msg.drone_state.drone_pose;
 
@@ -186,9 +183,10 @@ int main(int argc, char** argv)
     folder_name << "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/images/Tuareg/"
                 << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << "/";
     common_utils::FileSystem::createDirectory(folder_name.str());
-    ros::Subscriber image_received_sub = n.subscribe("/cinempc/perception_in", 1000, newImageReceivedCallback);
+    ros::Subscriber image_received_sub =
+        n.subscribe("/cinempc/perception_measurement_in", 1000, newImageReceivedCallback);
 
-    perception_result_publisher = n.advertise<cinempc::PerceptionOut>("/cinempc/perception_output", 10);
+    perception_result_publisher = n.advertise<cinempc::MeasurementOut>("/cinempc/perception_measurement_out", 10);
 
     ros::spin();
   }

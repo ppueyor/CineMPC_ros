@@ -119,7 +119,7 @@ bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
   return true;
 }
 
-void updateKalmanWithNewMeasure(const cinempc::KFIn::ConstPtr& kf_in_msg)
+void updateKalmanWithNewMeasure(const cinempc::EstimationIn::ConstPtr& kf_in_msg)
 {
   if (kf_in_msg->measure)
   {
@@ -176,7 +176,7 @@ int main(int argc, char** argv)
 
   initializeTargets();
 
-  KF_subscriber = n.subscribe<cinempc::KFIn>("cinempc/kf_in", 1000, updateKalmanWithNewMeasure);
+  KF_subscriber = n.subscribe<cinempc::EstimationIn>("cinempc/estimation_in", 1000, updateKalmanWithNewMeasure);
 
   ros::ServiceServer service =
       n.advertiseService<cinempc::GetNNextTargetPoses::Request, cinempc::GetNNextTargetPoses::Response>(

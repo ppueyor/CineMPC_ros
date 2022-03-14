@@ -10,6 +10,7 @@
             "request": "launch",
             //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/move_person_node",
             "program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_main_node",
+            //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_low_level_node",
             //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_solver_node",
             //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_user_node",
             //"program": "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/cinempc/cinempc_perception_node",

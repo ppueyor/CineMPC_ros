@@ -7,7 +7,7 @@
             "command": "catkin_make",
             "args": [
                 "-j4",
-                "-DCMAKE_BUILD_TYPE=RelWithDebInfo"
+                "-DCMAKE_BUILD_TYPE=Release"
             ],
             "problemMatcher": [],
             "group": {

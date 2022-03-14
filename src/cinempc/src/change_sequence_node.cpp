@@ -1,3 +1,4 @@
+#include <Constants.h>
 #include <ros/spinner.h>
 #include <std_msgs/Float32.h>
 
@@ -17,11 +18,11 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
 	ros::Duration delayed_time = ros::Time::now() - start_time;
-	if (delayed_time.sec > 27)
+	if (delayed_time.sec > start_sequence_3 * sim_speed)
 	{
 	  current_sequence = 3;
 	}
-	else if (delayed_time.sec > 20)
+	else if (delayed_time.sec > start_sequence_2_5 * sim_speed)
 	{
 	  current_sequence = 2;
 	}

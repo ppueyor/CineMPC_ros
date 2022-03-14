@@ -8,7 +8,7 @@
 <!-- Cinempc main node -->
 	<!-- <include file="$(find cinempc)/launch/cine_mpc_main_node.launch"/>	 -->
 	<node name="scene_node" pkg="cinempc" type="scene_node"  output="screen"></node>
-	<node name="cinempc_perception_node" pkg="cinempc" type="cinempc_perception_node"  output="screen"></node>
+	<node name="cinempc_perception_measurement_node" pkg="cinempc" type="cinempc_perception_measurement_node"  output="screen"></node>
 	<node name="change_sequence_node" pkg="cinempc" type="change_sequence_node"  output="screen"></node>
 	<node name="cinempc_low_level_node" pkg="cinempc" type="cinempc_low_level_node"  output="screen"></node>
 	<node name="cinempc_perception_estimation_node" pkg="cinempc" type="cinempc_perception_estimation_node"  output="screen"></node>
