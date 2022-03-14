@@ -8,7 +8,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 const double target_height = 1.62, target_width = 0.5;
 
-const bool static_target = false, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true;
+const bool static_target = true, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true;
 
 const double subject_yaw_gt = PI / 2, subject_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
