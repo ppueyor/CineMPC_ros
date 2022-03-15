@@ -90,35 +90,35 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(scene_node src/scene_node.cpp)
-add_dependencies(scene_node ${catkin_EXPORTED_TARGETS})
+add_executable(scene_node src/user/scene_node.cpp)
+add_dependencies(scene_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scene_node airsim_ros   ${catkin_LIBRARIES})
 
-add_executable(change_sequence_node src/change_sequence_node.cpp)
-add_dependencies(change_sequence_node ${catkin_EXPORTED_TARGETS})
+add_executable(change_sequence_node src/user/change_sequence_node.cpp)
+add_dependencies(change_sequence_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(change_sequence_node ${catkin_LIBRARIES})
 
-add_executable(cinempc_mpc_node src/cinempc_mpc_node.cpp) 
-add_dependencies(cinempc_mpc_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
-target_link_libraries(cinempc_mpc_node ipopt ${catkin_LIBRARIES} )
-
-add_executable(cinempc_user_node src/cinempc_user_node.cpp) 
+add_executable(cinempc_user_node src/user/cinempc_user_node.cpp) 
 add_dependencies(cinempc_user_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_user_node ${catkin_LIBRARIES} )
 
-add_executable(cinempc_main_node src/cinempc_main_node.cpp src/kalman.cpp) 
+add_executable(cinempc_mpc_node src/cinempc/cinempc_mpc_node.cpp) 
+add_dependencies(cinempc_mpc_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_mpc_node ipopt ${catkin_LIBRARIES} )
+
+add_executable(cinempc_main_node src/cinempc/cinempc_main_node.cpp) 
 add_dependencies(cinempc_main_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_main_node ${catkin_LIBRARIES} )
 
-add_executable(cinempc_low_level_node src/cinempc_low_level_node.cpp) 
+add_executable(cinempc_low_level_node src/cinempc/cinempc_low_level_node.cpp) 
 add_dependencies(cinempc_low_level_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_low_level_node  ${catkin_LIBRARIES} )
 
-add_executable(cinempc_perception_measurement_node src/cinempc_perception_measurement_node.cpp) 
+add_executable(cinempc_perception_measurement_node src/cinempc/cinempc_perception_measurement_node.cpp) 
 add_dependencies(cinempc_perception_measurement_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_perception_measurement_node darkhelp darknet ${catkin_LIBRARIES} AirLib)
 
-add_executable(cinempc_perception_estimation_node src/cinempc_perception_estimation.cpp src/kalman.cpp) 
+add_executable(cinempc_perception_estimation_node src/cinempc/cinempc_perception_estimation.cpp src/cinempc/kalman.cpp) 
 add_dependencies(cinempc_perception_estimation_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_perception_estimation_node ${catkin_LIBRARIES} )
 
@@ -127,9 +127,12 @@ install(TARGETS
     #list of nodes
     scene_node
     cinempc_mpc_node
+    cinempc_low_level_node
+    cinempc_perception_measurement_node
+    cinempc_perception_estimation_node
     cinempc_main_node
     change_sequence_node
-   # pd_position_controller_simple_node
+    
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 

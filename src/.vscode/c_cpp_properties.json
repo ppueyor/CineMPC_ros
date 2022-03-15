@@ -13,7 +13,8 @@
                 "/home/pablo/Documents/Unreal/AirSim/AirLib/deps/eigen3/",
                 "/home/pablo/Documents/Unreal/AirSim/AirLib/include/",
                 "/home/pablo/Documents/Unreal/AirSim//external/rpclib/rpclib-2.3.0/include",
-                "${workspaceFolder}/cinempc/include"
+                "${workspaceFolder}/cinempc/include",
+                "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/include"
             ],
             "name": "ROS",
             "cppStandard": "c++14"

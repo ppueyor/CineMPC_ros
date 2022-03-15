@@ -1,4 +1,0 @@
-<launch>
-	<node name="change_sequence_node" pkg="cinempc" type="change_sequence_node"  output="screen">
-	</node>
-</launch>
