@@ -16,3 +16,9 @@ src/cinempc/backup/
 src/cinempc/images/
 
 src/cinempc/logs/
+
+src/matlab/plane/Results
+
+src/matlab/dolly_zoom/Results
+
+src/matlab/dolly_zoom/old_logs
