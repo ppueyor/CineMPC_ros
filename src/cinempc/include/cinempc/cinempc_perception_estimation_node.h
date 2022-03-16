@@ -2,7 +2,7 @@
 #include <cinempc/EstimationIn.h>
 #include <cinempc/GetNNextTargetPoses.h>
 
-#include <cinempc/kalman.hpp>
+#include <cinempc/cinempc_kalman.hpp>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/QR>

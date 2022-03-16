@@ -641,8 +641,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (drone_moving)
 	  {
-		lowerbound = x_lowest;
-		upperbound = x_highest;
+		lowerbound = y_lowest;
+		upperbound = y_highest;
 	  }
 	  else
 	  {
@@ -665,9 +665,13 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	}
 	else if (i >= z_start && i < roll_gimbal_start)
 	{
-	  if (drone_moving)
+	  if (drone_moving && floor_constraints)
 	  {
-		lowerbound = z_lowest;	// y_lowest;
+		lowerbound = -0.5;	// y_lowest;
+		upperbound = msg->floor_pos - 0.2;
+	  }
+	  else if(!floor_constraints){
+		lowerbound = z_lowest;
 		upperbound = z_highest;
 	  }
 	  else

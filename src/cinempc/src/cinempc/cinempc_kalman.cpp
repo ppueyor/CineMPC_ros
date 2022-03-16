@@ -8,7 +8,7 @@
 #include <iostream>
 #include <stdexcept>
 
-#include "cinempc/kalman.hpp"
+#include "cinempc/cinempc_kalman.hpp"
 
 KalmanFilterEigen::KalmanFilterEigen(double dt, const Eigen::MatrixXd& A, const Eigen::MatrixXd& C,
                                      const Eigen::MatrixXd& Q, const Eigen::MatrixXd& R, const Eigen::MatrixXd& P,

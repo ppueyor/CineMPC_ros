@@ -10,7 +10,7 @@ int main(int argc, char **argv)
   ros::NodeHandle n;
 
   ros::Publisher change_sequence_pub = n.advertise<std_msgs::Float32>("cinempc/sequence", 1000);
-  ros::Rate loop_rate(5 * sim_frequency);
+  ros::Rate loop_rate(5);
 
   ros::Time start_time = ros::Time::now();
   float current_sequence = 0, sequence = 0;
@@ -18,19 +18,11 @@ int main(int argc, char **argv)
   while (ros::ok())
   {
 	ros::Duration delayed_time = ros::Time::now() - start_time;
-	if (delayed_time.sec > (start_sequence_4 * sim_speed))
-	{
-	  current_sequence = 4;
-	}
-	else if (delayed_time.sec > (start_sequence_3 * sim_speed))
+	if (delayed_time.sec > start_sequence_3 * sim_speed)
 	{
 	  current_sequence = 3;
 	}
-	else if (delayed_time.sec > (start_sequence_2_5 * sim_speed))
-	{
-	  current_sequence = 2.5;
-	}
-	else if (delayed_time.sec > (start_sequence_2 * sim_speed))
+	else if (delayed_time.sec > start_sequence_2_5 * sim_speed)
 	{
 	  current_sequence = 2;
 	}
