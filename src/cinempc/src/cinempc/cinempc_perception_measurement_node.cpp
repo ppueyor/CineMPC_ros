@@ -67,12 +67,12 @@ float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box
 cinempc::TargetState calculateTarget(DarkHelp::PredictionResult result, cv_bridge::CvImagePtr depth_cv_ptr,
                                      const cinempc::MeasurementIn& msg_in)
 {
-  Rect rect1 = result.rect;
-  float target_u_center = rect1.x + (rect1.width / 2);
-  float target_v_top = rect1.y;  // + (rect1.height);
-  float target_v_center = rect1.y + (rect1.height / 2);
+  Rect bb_target = result.rect;
+  float target_u_center = bb_target.x + (bb_target.width / 2);
+  float target_v_top = bb_target.y;  // + (rect1.height);
+  float target_v_center = bb_target.y + (bb_target.height / 2);
 
-  float depth_target = calculateMedianDepth(depth_cv_ptr, rect1) * 100000;  // convert to mms
+  float depth_target = calculateMedianDepth(depth_cv_ptr, bb_target) * 100000;  // convert to mms
   geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
 
   geometry_msgs::Pose relative_pose_top = cinempc::drone_relative_position_from_image<double>(

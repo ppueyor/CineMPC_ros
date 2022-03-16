@@ -312,7 +312,7 @@ private:
                          const std::string &child_frame_id);
   void publish_odom_tf(const nav_msgs::Odometry &odom_msg);
 
-  void publish_person_tf(const geometry_msgs::PoseStamped &pose_person_msg, string name);
+  void publish_target_tf(const geometry_msgs::PoseStamped &pose_target_msg, string name);
 
   /// camera helper methods
   sensor_msgs::CameraInfo generate_cam_info(const std::string &camera_name, const CameraSetting &camera_setting,
@@ -399,6 +399,7 @@ private:
   bool is_vulkan_;  // rosparam obtained from launch file. If vulkan is being used, we BGR encoding instead of RGB
 
   std::string host_ip_;
+  std::vector<string> targets_list;
   std::unique_ptr<msr::airlib::RpcLibClientBase> airsim_client_ = nullptr;
   // seperate busy connections to airsim, update in their own thread
   msr::airlib::RpcLibClientBase airsim_client_images_;

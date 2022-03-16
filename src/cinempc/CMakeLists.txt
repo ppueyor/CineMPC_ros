@@ -118,7 +118,7 @@ add_executable(cinempc_perception_measurement_node src/cinempc/cinempc_perceptio
 add_dependencies(cinempc_perception_measurement_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_perception_measurement_node darkhelp darknet ${catkin_LIBRARIES} AirLib)
 
-add_executable(cinempc_perception_estimation_node src/cinempc/cinempc_perception_estimation.cpp src/cinempc/kalman.cpp) 
+add_executable(cinempc_perception_estimation_node src/cinempc/cinempc_perception_estimation_node.cpp src/cinempc/kalman.cpp) 
 add_dependencies(cinempc_perception_estimation_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_perception_estimation_node ${catkin_LIBRARIES} )
 

@@ -3,6 +3,8 @@
 	<arg name="publish_clock" default="true"/>
 	<arg name="is_vulkan" default="true"/>
 	<arg name="host" default="localhost" />
+	<arg name="targets_list" default="[Tuareg]"/>
+
 
 	<node name="airsim_node" pkg="airsim_ros_pkgs" type="airsim_node" output="$(arg output)">
 		<param name="is_vulkan" type="bool" value="false" /> 
@@ -13,6 +15,8 @@
 		<param name="update_lidar_every_n_sec" type="double" value="0.01" />
 		<param name="publish_clock" type="bool" value="$(arg publish_clock)" />
 		<param name="host_ip" type="string" value="$(arg host)" />
+		<param name="targets_list" value="$(arg targets_list)"/>
+
 		
 	</node>
 

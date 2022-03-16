@@ -83,3 +83,8 @@ const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros
 const std::string config_file_yolo = "/home/pablo/Downloads/darknet/cfg/yolov4.cfg";
 const std::string weights_file_yolo = "/home/pablo/Downloads/darknet/yolov4.weights";
 const std::string names_file_yolo = "/home/pablo/Downloads/darknet/cfg/coco.names";
+
+const int kf_states = 6, kf_measurements = 3;
+const double kf_dt = 0.2;
+const double kf_a = 1, kf_c = 1, kf_q = 0.5, kf_r = 0.5, kf_p = 2;
+const double kf_init_x = 0, kf_init_y = -10, kf_init_z = 0, kf_init_vx = 0, kf_init_vy = 0, kf_init_vz = 0;

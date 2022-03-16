@@ -1,4 +1,4 @@
-#include "cinempc/cinempc_perception_estimation.h"
+#include "cinempc/cinempc_perception_estimation_node.h"
 
 using namespace std;
 using namespace std::chrono;
@@ -7,11 +7,11 @@ std::vector<KalmanFilterEigen> kalman_filter_targets;
 
 KalmanFilterEigen initializeKalmanFilterTarget()
 {
-  int n = 6;  // Number of states
-  int m = 3;  // Number of measurements
+  int n = kf_states;        // Number of states
+  int m = kf_measurements;  // Number of measurements
 
-  double dt_kf = 0.2;  // Time step that we receive each image/measurement. We need to make it match with
-                       // update_airsim_img_response_every_n_sec param of the sim
+  double dt_kf = kf_dt;  // Time step that we receive each image/measurement. We need to make it match with
+                         // update_airsim_img_response_every_n_sec param of the sim
 
   Eigen::MatrixXd A(n, n);  // System dynamics matrix
   Eigen::MatrixXd C(m, n);  // Output matrix
@@ -19,17 +19,18 @@ KalmanFilterEigen initializeKalmanFilterTarget()
   Eigen::MatrixXd R(m, m);  // Measurement noise covariance
   Eigen::MatrixXd P(n, n);  // Estimate error covariance
 
-  A << 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-      0, 1;
-  C << 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0;
+  A << kf_a, 0, 0, dt_kf, 0, 0, 0, kf_a, 0, 0, dt_kf, 0, 0, 0, kf_a, 0, 0, dt_kf, 0, 0, 0, kf_a, 0, 0, 0, 0, 0, 0, kf_a,
+      0, 0, 0, 0, 0, 0, kf_a;
+  C << kf_c, 0, 0, 0, 0, 0, 0, kf_c, 0, 0, 0, 0, 0, 0, kf_c, 0, 0, 0;
 
   // Reasonable covariance matrices
-  Q << 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0.5, 0, 0, 0, 0, 0,
-      0, 0.5;  // hacer dependiente de dt
-  R << 0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5;
+  Q << kf_q, 0, 0, 0, 0, 0, 0, kf_q, 0, 0, 0, 0, 0, 0, kf_q, 0, 0, 0, 0, 0, 0, kf_q, 0, 0, 0, 0, 0, 0, kf_q, 0, 0, 0, 0,
+      0, 0, kf_q;
+  R << kf_r, 0, 0, 0, kf_r, 0, 0, 0, kf_r;
 
-  P << 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
-      2;  // bigger than  Q and R. Incertidumbre inicial
+  P << kf_p, 0, 0, 0, 0, 0, 0, kf_p, 0, 0, 0, 0, 0, 0, kf_p, 0, 0, 0, 0, 0, 0, kf_p, 0, 0, 0, 0, 0, 0, kf_p, 0, 0, 0, 0,
+      0, 0,
+      kf_p;  // bigger than  Q and R.
 
   std::cout << "A: \n" << A << std::endl;
   std::cout << "C: \n" << C << std::endl;
@@ -42,7 +43,7 @@ KalmanFilterEigen initializeKalmanFilterTarget()
 
   Eigen::VectorXd x0(n);
   double t = 0;
-  x0 << 0, 0, 0, 0, 0, 0;
+  x0 << kf_init_x, kf_init_y, kf_init_z, kf_init_vx, kf_init_vy, kf_init_vz;
   init.init(t, x0);
 
   return init;

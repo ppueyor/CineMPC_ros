@@ -107,6 +107,7 @@ void AirsimROSWrapper::initialize_ros()
   nh_private_.getParam("update_target_position_every_n_sec", update_target_position_every_n_sec);
   nh_private_.getParam("publish_clock", publish_clock_);
   nh_private_.param("world_frame_id", world_frame_id_, world_frame_id_);
+  nh_private_.param("targets_list", targets_list);
   odom_frame_id_ = world_frame_id_ == AIRSIM_FRAME_ID ? AIRSIM_ODOM_FRAME_ID : ENU_ODOM_FRAME_ID;
   nh_private_.param("odom_frame_id", odom_frame_id_, odom_frame_id_);
   isENU_ = !(odom_frame_id_ == AIRSIM_ODOM_FRAME_ID);
@@ -436,8 +437,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
   }
 
   // targets state
-  string targets[] = { "Tuareg" };
-  for (const string target : targets)
+  for (const string target : targets_list)
   {
     std::unique_ptr<TargetROS> target_ros = nullptr;
     target_ros = std::unique_ptr<TargetROS>(new TargetROS());
@@ -1109,19 +1109,19 @@ void AirsimROSWrapper::publish_odom_tf(const nav_msgs::Odometry& odom_msg)
   tf_broadcaster_.sendTransform(odom_tf);
 }
 
-void AirsimROSWrapper::publish_person_tf(const geometry_msgs::PoseStamped& person_pose_msg, string name)
+void AirsimROSWrapper::publish_target_tf(const geometry_msgs::PoseStamped& target_pose_msg, string name)
 {
-  geometry_msgs::TransformStamped person_tf;
-  person_tf.header = person_pose_msg.header;
-  person_tf.child_frame_id = name;
-  person_tf.transform.translation.x = person_pose_msg.pose.position.x;
-  person_tf.transform.translation.y = person_pose_msg.pose.position.y;
-  person_tf.transform.translation.z = person_pose_msg.pose.position.z;
-  person_tf.transform.rotation.x = person_pose_msg.pose.orientation.x;
-  person_tf.transform.rotation.y = person_pose_msg.pose.orientation.y;
-  person_tf.transform.rotation.z = person_pose_msg.pose.orientation.z;
-  person_tf.transform.rotation.w = person_pose_msg.pose.orientation.w;
-  tf_broadcaster_.sendTransform(person_tf);
+  geometry_msgs::TransformStamped target_tf;
+  target_tf.header = target_pose_msg.header;
+  target_tf.child_frame_id = name;
+  target_tf.transform.translation.x = target_pose_msg.pose.position.x;
+  target_tf.transform.translation.y = target_pose_msg.pose.position.y;
+  target_tf.transform.translation.z = target_pose_msg.pose.position.z;
+  target_tf.transform.rotation.x = target_pose_msg.pose.orientation.x;
+  target_tf.transform.rotation.y = target_pose_msg.pose.orientation.y;
+  target_tf.transform.rotation.z = target_pose_msg.pose.orientation.z;
+  target_tf.transform.rotation.w = target_pose_msg.pose.orientation.w;
+  tf_broadcaster_.sendTransform(target_tf);
 }
 
 airsim_ros_pkgs::GPSYaw
@@ -1411,7 +1411,7 @@ void AirsimROSWrapper::publish_target_state()
     object_state_msg.pose.orientation.w = p.orientation.w();
 
     target_ros->target_pose_pub.publish(object_state_msg);
-    publish_person_tf(object_state_msg, target_name_ptr_pair.first);
+    publish_target_tf(object_state_msg, target_name_ptr_pair.first);
   }
 }
 
