@@ -59,27 +59,6 @@ const Eigen::MatrixXd getNewAMatrix(double dt_kf)
   return A;
 }
 
-geometry_msgs::Quaternion predictWorldOrientationFromVelocity(double vx, double vy, double vz)
-{
-  Eigen::Matrix<double, 3, 1> wvt(vx, vy, vz);
-  wvt.normalize();
-  Eigen::Matrix<double, 3, 1> g(0, 0, 9.8);
-  g.normalize();
-  Eigen::Matrix<double, 3, 1> a = g.cross(wvt);
-  a.normalize();
-  Eigen::Matrix<double, 3, 1> b = wvt.cross(a);
-  b.normalize();
-
-  // Now we have R in the world, we suppose all the parts of the target will have the same orientation
-  Eigen::Matrix<double, 3, 3> R;
-  R.col(0) = wvt;
-  R.col(1) = a;
-  R.col(2) = b;
-
-  // logRPY(R, "orient");
-  return cinempc::RMatrixToQuat<double>(R);
-}
-
 bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
                                  cinempc::GetNNextTargetPoses::Response& res)
 {
@@ -106,7 +85,7 @@ bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
 
     if (!static_target)
     {
-      target_pose.orientation = predictWorldOrientationFromVelocity(new_vel.x, new_vel.y, new_vel.z);
+      target_pose.orientation = cinempc::predictWorldOrientationFromVelocity<double>(new_vel.x, new_vel.y, new_vel.z);
     }
     else
     {

@@ -12,7 +12,8 @@ float sequence = 1;
 double move_person_step_dt = 10;
 std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step,
 	yaw_target;	 // for each target
-std::vector<ros::Publisher> move_target_pub_vector;
+
+std::vector<ros::Publisher> move_target_pub_vector, speed_target_pub;
 
 std::vector<geometry_msgs::PoseStamped> initial_state_target_vector;
 

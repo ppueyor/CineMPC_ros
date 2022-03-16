@@ -308,6 +308,27 @@ T calculateDistanceTo3DPoint(T x1, T y1, T z1, T x2, T y2, T z2)
   return (sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2) + pow(z2 - z1, 2)));
 }
 
+template <typename T>
+geometry_msgs::Quaternion predictWorldOrientationFromVelocity(T vx, T vy, T vz)
+{
+  Eigen::Matrix<T, 3, 1> wvt(vx, vy, vz);
+  wvt.normalize();
+  Eigen::Matrix<T, 3, 1> g(0, 0, 9.8);
+  g.normalize();
+  Eigen::Matrix<T, 3, 1> a = g.cross(wvt);
+  a.normalize();
+  Eigen::Matrix<T, 3, 1> b = wvt.cross(a);
+  b.normalize();
+
+  // Now we have R in the world, we suppose all the parts of the target will have the same orientation
+  Eigen::Matrix<T, 3, 3> R;
+  R.col(0) = wvt;
+  R.col(1) = a;
+  R.col(2) = b;
+
+  return RMatrixToQuat<double>(R);
+}
+
 std::string plotValues(cinempc::PlotValues plot_values, bool header)
 {
   std::ostringstream result;
@@ -342,6 +363,12 @@ std::string plotValues(cinempc::PlotValues plot_values, bool header)
            << "v_y_kf"
            << ","
            << "v_z_kf"
+           << ","
+           << "v_x_gt"
+           << ","
+           << "v_y_gt"
+           << ","
+           << "v_z_gt"
            << ","
            << "pitch_gt"
            << ","
@@ -420,7 +447,8 @@ std::string plotValues(cinempc::PlotValues plot_values, bool header)
            << plot_values.target_world_perception.x << "," << plot_values.target_world_perception.y << ","
            << plot_values.target_world_perception.z << "," << plot_values.target_world_kf.x << ","
            << plot_values.target_world_kf.y << "," << plot_values.target_world_kf.z << "," << plot_values.d_gt << ","
-           << plot_values.v_kf.x << "," << plot_values.v_kf.y << "," << plot_values.v_kf.z << ","
+           << plot_values.v_target_kf.x << "," << plot_values.v_target_kf.y << "," << plot_values.v_target_kf.z << ","
+           << plot_values.v_target_gt.x << "," << plot_values.v_target_gt.y << "," << plot_values.v_target_gt.z << ","
            << cinempc::quatToRPY<double>(plot_values.target_rot_gt).pitch << ","
            << cinempc::quatToRPY<double>(plot_values.target_rot_gt).yaw << ","
            << cinempc::quatToRPY<double>(plot_values.target_rot_perception).pitch << ","

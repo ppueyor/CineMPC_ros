@@ -90,7 +90,7 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(scene_node src/user/scene_node.cpp)
+add_executable(scene_node src/user/cinempc_scene_node.cpp)
 add_dependencies(scene_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(scene_node airsim_ros   ${catkin_LIBRARIES})
 

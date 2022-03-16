@@ -83,10 +83,10 @@ void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
   aperture_vector.at(0) = aperture;
 
   pitch_vector = msg->pitch_vector;
-  // pitch_vector.at(0) = pitch_gimbal;
+  pitch_vector.at(0) = pitch_gimbal;
 
   yaw_vector = msg->yaw_vector;
-  // yaw_vector.at(0) = yaw_gimbal;
+  yaw_vector.at(0) = yaw_gimbal;
 
   double distance = cinempc::calculateDistanceTo3DPoint<double>(
       msg->move_on_path_msg.positions.at(0).x, msg->move_on_path_msg.positions.at(0).y,

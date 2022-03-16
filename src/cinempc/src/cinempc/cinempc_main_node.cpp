@@ -31,6 +31,8 @@ float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
 geometry_msgs::Pose drone_pose_when_called;
 
+geometry_msgs::Quaternion orientation_target_gt;
+
 std::vector<float> times_vector, roll_vector, yaw_vector, pitch_vector, focal_length_vector, focus_distance_vector,
     aperture_vector;
 
@@ -167,6 +169,15 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
     estimation_in_publisher.publish(estimation_in_msg);
     start_measure = ros::Time::now();
   }
+}
+
+void readTargetVelocityCallback(const geometry_msgs::Point::ConstPtr& msg, int target_index)
+{
+  plot_values.v_target_gt = *msg;
+
+  orientation_target_gt = cinempc::predictWorldOrientationFromVelocity<double>(msg->x, msg->y, msg->z);
+
+  plot_values.target_rot_gt = orientation_target_gt;
 }
 
 void readTargetStatePerceptionCallback(const cinempc::MeasurementOut::ConstPtr& msg)
@@ -528,7 +539,8 @@ int main(int argc, char** argv)
 
   ros::Subscriber stop_signal_received = n.subscribe("/cinempc/stop", 1000, stopReceivedCallback);
 
-  std::vector<ros::Subscriber> targets_states_subscribers_gt = {};
+  std::vector<ros::Subscriber> targets_states_subscribers_gt = {}, target_velocities_subscribers_gt = {};
+  ;
   ros::Subscriber targets_states_subscriber_perception;
   if (use_perception)
   {
@@ -539,6 +551,10 @@ int main(int argc, char** argv)
   {
     targets_states_subscribers_gt.push_back(n.subscribe<geometry_msgs::PoseStamped>(
         "airsim_node/" + targets_names.at(i) + "/get_pose", 1000, boost::bind(&readTargetStateCallback, _1, i)));
+
+    target_velocities_subscribers_gt.push_back(
+        n.subscribe<geometry_msgs::Point>("airsim_node/" + targets_names.at(i) + "/current_speed", 1000,
+                                          boost::bind(&readTargetVelocityCallback, _1, i)));
   }
 
   perception_meas_publisher = n.advertise<cinempc::MeasurementIn>("/cinempc/perception_measurement_in", 10);
