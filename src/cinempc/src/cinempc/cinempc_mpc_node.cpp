@@ -401,7 +401,7 @@ public:
 		  plot_values.intrinsics_camera.aperture = Value(vars[aperture_start + 0]);
 		  plot_values.intrinsics_camera.focus_distance = Value(vars[focus_distance_start + 0]) * 100;
 
-		  plot_values.im_v_center = Value(current_pixel_v_target_center);
+		  plot_values.d_gt = Value(distance_2D_target);
 		  plot_values.relative_roll = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).roll);
 		  plot_values.relative_yaw = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw);
 		  plot_values.relative_pitch = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch);

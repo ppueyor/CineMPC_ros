@@ -151,8 +151,6 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
 
   // plot
   geometry_msgs::Pose relative_pose = cinempc::calculate_relative_pose_drone_target<double>(wTtop_measure, drone_pose);
-  plot_values.d_gt =
-      cinempc::calculateDistanceTo2DPoint<double>(0, 0, relative_pose.position.x, relative_pose.position.y);
 
   if (!use_perception)
   {
@@ -413,6 +411,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
         if (t == 0)
         {
           plot_values.target_world_kf = world_pose_top_kf.position;
+          plot_values.v_target_kf = srv_get_poses.response.velocity_target_kf;
         }
 
         plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, target_yaw_gt);

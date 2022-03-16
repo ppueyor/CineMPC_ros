@@ -84,6 +84,11 @@ bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
     new_vel.y = new_states(i, 4);
     new_vel.z = new_states(i, 5);
 
+    if (i == 0)
+    {
+      res.velocity_target_kf = new_vel;
+    }
+
     if (!static_target)
     {
       target_pose.orientation = cinempc::predictWorldOrientationFromVelocity<double>(new_vel.x, new_vel.y, new_vel.z);

@@ -90,13 +90,13 @@ include_directories(
   ${Boost_INCLUDE_DIRS}
 )
 
-add_executable(scene_node src/user/cinempc_scene_node.cpp)
-add_dependencies(scene_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
-target_link_libraries(scene_node airsim_ros   ${catkin_LIBRARIES})
+add_executable(cinempc_scene_node src/user/cinempc_scene_node.cpp)
+add_dependencies(cinempc_scene_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_scene_node airsim_ros   ${catkin_LIBRARIES})
 
-add_executable(change_sequence_node src/user/change_sequence_node.cpp)
-add_dependencies(change_sequence_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
-target_link_libraries(change_sequence_node ${catkin_LIBRARIES})
+add_executable(cinempc_change_sequence_node src/user/cinempc_change_sequence_node.cpp)
+add_dependencies(cinempc_change_sequence_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_change_sequence_node ${catkin_LIBRARIES})
 
 add_executable(cinempc_user_node src/user/cinempc_user_node.cpp) 
 add_dependencies(cinempc_user_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
@@ -118,20 +118,21 @@ add_executable(cinempc_perception_measurement_node src/cinempc/cinempc_perceptio
 add_dependencies(cinempc_perception_measurement_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
 target_link_libraries(cinempc_perception_measurement_node darkhelp darknet ${catkin_LIBRARIES} AirLib)
 
-add_executable(cinempc_perception_estimation_node src/cinempc/cinempc_perception_estimation_node.cpp src/cinempc/kalman.cpp) 
+add_executable(cinempc_perception_estimation_node src/cinempc/cinempc_perception_estimation_node.cpp src/cinempc/cinempc_kalman.cpp) 
 add_dependencies(cinempc_perception_estimation_node cinempc_generate_messages_cpp ${catkin_EXPORTED_TARGETS})
+target_link_libraries(cinempc_perception_estimation_node ${catkin_LIBRARIES} )
 target_link_libraries(cinempc_perception_estimation_node ${catkin_LIBRARIES} )
 
 
 install(TARGETS
     #list of nodes
-    scene_node
+    cinempc_scene_node
     cinempc_mpc_node
     cinempc_low_level_node
     cinempc_perception_measurement_node
     cinempc_perception_estimation_node
     cinempc_main_node
-    change_sequence_node
+    cinempc_change_sequence_node
     
     DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )

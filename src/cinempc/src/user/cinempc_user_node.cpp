@@ -176,11 +176,11 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.weights.w_df = 0;
 
     c.targets_im_top_star.at(0).x = image_x_center;
-    c.weights.w_img_targets.at(0).x = 2;  // 10;                      // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).x = 1;  // 10;                      // 1;                       // 1 * 1;
     c.targets_im_top_star.at(0).y = image_y_third_up - 30;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_top = 1;  // 10;                      // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).y_top = 0.5;  // 10;                      // 1;                       // 1 * 1;
     c.targets_im_bottom_star.at(0).y = image_y_third_down + 30;  // mid-body (control with calculations of positions)
-    c.weights.w_img_targets.at(0).y_bottom = 1;                  // 1;                       // 1 * 1;
+    c.weights.w_img_targets.at(0).y_bottom = 0.5;                // 1;                       // 1 * 1;
     c.targets_im_center_star.at(0).y = image_y_third_down - 80;  // mid-body (control with calculations of positions)
     c.weights.w_img_targets.at(0).y_center = 0;
 

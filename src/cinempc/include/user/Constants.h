@@ -64,7 +64,7 @@ const double vel_foc_lowest = -7 * sim_speed, vel_foc_highest = 7 * sim_speed;  
 const double vel_focus_lowest = -15 * sim_speed, vel_focus_highest = 15 * sim_speed;
 const double vel_aperture_lowest = -3 * sim_speed, vel_aperture_highest = 3 * sim_speed;
 
-const double accel = 5 * sim_speed;
+const double accel = 7 * sim_speed;
 const double a_x_lowest = -accel, a_x_highest = accel;
 const double a_y_lowest = -accel, a_y_highest = accel;
 const double a_z_lowest = -accel, a_z_highest = accel;

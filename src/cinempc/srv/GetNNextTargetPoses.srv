@@ -3,3 +3,4 @@ float32 mpc_dt
 int8 mpc_N
 ---
 geometry_msgs/Pose[] poses_target
+geometry_msgs/Point velocity_target_kf
