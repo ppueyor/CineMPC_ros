@@ -171,9 +171,6 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
 
 void readTargetStatePerceptionCallback(const cinempc::MeasurementOut::ConstPtr& msg)
 {
-  // std::cout << "pose:" << msg->pose_top.position.x << std::endl;
-  // world position target
-
   std::vector<geometry_msgs::Point> state;
   ros::Time end_measure = ros::Time::now();
   ros::Duration time_measure = end_measure - start_measure;
@@ -185,8 +182,6 @@ void readTargetStatePerceptionCallback(const cinempc::MeasurementOut::ConstPtr& 
     {
       for (string target_class : targets_classes)
       {
-        std::cout << target_state.target_name;
-        std::cout << target_class << endl;
         if (target_state.target_name.find(target_class) != std::string::npos)
         {
           geometry_msgs::Pose wTtop_measure = cinempc::calculate_world_pose_from_relative<double>(
@@ -254,7 +249,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   plot_values.time_ms = diff.toNSec() / (1000000 * sim_speed);
   plot_values.mpc_plot_values = msg->plot_values;
 
-  // std::cout << msg->cost << std::endl;
   if (msg->cost > 0)
   {
     logFile << cinempc::plotValues(plot_values, false);
@@ -286,10 +280,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
       aperture_vector.insert(aperture_vector.begin() + index_mpc, cine_mpc_result.intrinsics.aperture);
 
       geometry_msgs::Pose world_T_result;
-
-      // std::cout << "result:" << cine_mpc_result.drone_pose.position.x << "    " <<
-      // cine_mpc_result.drone_pose.position.y
-      //           << "    " << cine_mpc_result.drone_pose.position.z << std::endl;
 
       world_T_result =
           cinempc::calculate_world_pose_from_relative<double>(drone_pose_when_called, cine_mpc_result.drone_pose);
@@ -340,7 +330,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     airsim_ros_pkgs::MoveOnPath msg_move_on_path;
     double max_vel = max(0.1, max(max_vel_x, max(max_vel_y, max_vel_z)));
 
-    // std::cout << "max_vel:" << max_vel << std::endl;
     low_level_control_msg.move_on_path_msg.vel = max_vel;
     low_level_control_msg.move_on_path_msg.timeout = 10;
     low_level_control_msg.move_on_path_msg.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
@@ -381,9 +370,6 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, 0);
   msg_mpc_in.drone_state.drone_pose.orientation = q;  // drone_pose.orientation;
   msg_mpc_in.floor_pos = -drone_pose.position.z;
-
-  // std::cout << "floor_pos:" << msg_mpc_in.floor_pos << std::endl;
-
   msg_mpc_in.drone_state.intrinsics = intrinsics_next_state;
 
   // initalize mesage
@@ -413,7 +399,6 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
     if (service_get_N_poses.call(srv_get_poses))
     {
       std::vector<geometry_msgs::Pose> world_top_poses = srv_get_poses.response.poses_target;
-      std::cout << world_top_poses.at(0).position.x;
       world_rotations.push_back(world_top_poses.at(0).orientation);
       for (int t = 0; t < MPC_N; t++)
       {
@@ -451,7 +436,6 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
     msg_mpc_in.constraints = srv.response.contraints;
     new_MPC_state_publisher.publish(msg_mpc_in);
     plot_values.constraints = srv.response.contraints;
-    // std::cout << "PUBLISHED" << std::endl;
   }
 }
 
