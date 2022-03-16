@@ -2,10 +2,10 @@
 #include <cinempc/EstimationIn.h>
 #include <cinempc/GetNNextTargetPoses.h>
 
+#include <cinempc/kalman.hpp>
 #include <eigen3/Eigen/Core>
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/QR>
-#include <cinempc/kalman.hpp>
 #include <vector>
 
 #include "ros/ros.h"

@@ -107,11 +107,12 @@ void AirsimROSWrapper::initialize_ros()
   nh_private_.getParam("update_target_position_every_n_sec", update_target_position_every_n_sec);
   nh_private_.getParam("publish_clock", publish_clock_);
   nh_private_.param("world_frame_id", world_frame_id_, world_frame_id_);
-  nh_private_.param("targets_list", targets_list);
   odom_frame_id_ = world_frame_id_ == AIRSIM_FRAME_ID ? AIRSIM_ODOM_FRAME_ID : ENU_ODOM_FRAME_ID;
   nh_private_.param("odom_frame_id", odom_frame_id_, odom_frame_id_);
   isENU_ = !(odom_frame_id_ == AIRSIM_ODOM_FRAME_ID);
   nh_private_.param("coordinate_system_enu", isENU_, isENU_);
+  nh_private_.param("targets_list", targets_list_, std::vector<string>());
+
   vel_cmd_duration_ = 0.05;  // todo rosparam
   // todo enforce dynamics constraints in this node as well?
   // nh_.getParam("max_vert_vel_", max_vert_vel_);
@@ -437,15 +438,15 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
   }
 
   // targets state
-  for (const string target : targets_list)
+  for (const string target : targets_list_)
   {
     std::unique_ptr<TargetROS> target_ros = nullptr;
     target_ros = std::unique_ptr<TargetROS>(new TargetROS());
 
     target_ros->target_name = target;
-    target_ros->target_pose_pub = nh_private_.advertise<geometry_msgs::PoseStamped>(target + "/get_pose", 10);
     target_ros->target_pose_sub = nh_private_.subscribe<geometry_msgs::Pose>(
         target + "/set_pose", 1, boost::bind(&AirsimROSWrapper::set_object_pose_cb, this, _1, target));
+    target_ros->target_pose_pub = nh_private_.advertise<geometry_msgs::PoseStamped>(target + "/get_pose", 10);
 
     target_name_ptr_map_.emplace(target, std::move(target_ros));  // allows fast lookup in command callbacks in case of
                                                                   // a lot of drones

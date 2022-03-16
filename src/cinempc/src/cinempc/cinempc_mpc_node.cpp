@@ -376,8 +376,8 @@ public:
 		  new_drone_R_target = new_drone_R.transpose() * drone_R_target;
 		  if (t == 0)
 		  {
-			logRPY(drone_R_star, "drone_R_star");
-			logRPY(new_drone_R_target, "new_drone_R_target");
+			// logRPY(drone_R_star, "drone_R_star");
+			// logRPY(new_drone_R_target, "new_drone_R_target");
 		  }
 		  AD<double> cost_R_target = (new_drone_R_target - drone_R_star).norm();
 		  Jp += constraints.weights.w_R_targets.at(j) * cost_R_target;
@@ -641,8 +641,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (drone_moving)
 	  {
-		lowerbound = y_lowest;
-		upperbound = y_highest;
+		lowerbound = x_lowest;
+		upperbound = x_highest;
 	  }
 	  else
 	  {
@@ -667,8 +667,8 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (drone_moving)
 	  {
-		lowerbound = -0.5;	// y_lowest;
-		upperbound = msg->floor_pos - 0.2;
+		lowerbound = z_lowest;	// y_lowest;
+		upperbound = z_highest;
 	  }
 	  else
 	  {

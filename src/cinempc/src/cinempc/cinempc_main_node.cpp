@@ -26,8 +26,6 @@ std::ofstream logFile;
 
 cinempc::MeasurementIn perception_meas_in_msg;
 
-airsim_ros_pkgs::IntrinsicsCamera intrinsics_next_state;
-float focal_length_next_state = 35;
 geometry_msgs::Pose drone_pose_next_state;
 geometry_msgs::Pose drone_pose_when_called;
 
@@ -242,7 +240,6 @@ void initializeTargets()
 
 void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 {
-  std::cout << std::endl;
   std::vector<geometry_msgs::Point> pathMPC;
   focal_length_vector.clear();
   focus_distance_vector.clear();
@@ -308,7 +305,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
 
       if (index_mpc == 1)
       {
-        intrinsics_next_state = cine_mpc_result.intrinsics;
         drone_pose_next_state = world_T_result;
         vel_x = cine_mpc_result.velocity.x;
         vel_y = cine_mpc_result.velocity.y;
@@ -365,8 +361,7 @@ airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float 
 
 void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 {
-  geometry_msgs::Pose drone_pose_now = drone_pose;
-  drone_pose_when_called = drone_pose_now;
+  drone_pose_when_called = drone_pose;
 
   // logPosition(drone_pose_now.position, "Drone_pose_now");
   cinempc::MPCIncomingState msg_mpc_in;
@@ -381,7 +376,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
   geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, 0);
   msg_mpc_in.drone_state.drone_pose.orientation = q;  // drone_pose.orientation;
   msg_mpc_in.floor_pos = -drone_pose.position.z;
-  msg_mpc_in.drone_state.intrinsics = intrinsics_next_state;
+  msg_mpc_in.drone_state.intrinsics = getInstrinscsMsg(focal_length, focus_distance, aperture);
 
   // initalize mesage
   for (int target = 0; target < targets_names.size(); target++)
@@ -423,7 +418,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
         plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, target_yaw_gt);
         plot_values.target_rot_perception = world_pose_top_kf.orientation;
 
-        cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_now);
+        cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_when_called);
 
         msg_mpc_in.targets.at(target).poses_top.at(t) = target_state.pose_top;
         msg_mpc_in.targets.at(target).poses_center.at(t) = target_state.pose_center;
@@ -440,7 +435,7 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
   cinempc::GetUserConstraints srv;
   srv.request.targets_relative = msg_mpc_in.targets;
   srv.request.world_rotations_target = world_rotations;
-  srv.request.drone_pose = drone_pose_now;
+  srv.request.drone_pose = drone_pose_when_called;
   srv.request.sequence = sequence;
   if (service_get_user_constraints.call(srv))
   {
@@ -488,6 +483,7 @@ void depthReceivedCallback(const sensor_msgs::Image& msg)
 void readGimbalOrientationCallback(const airsim_ros_pkgs::GimbalAngleQuatCmd::ConstPtr& msg)
 {
   drone_pose.orientation = msg->orientation;
+  // logRPY(cinempc::quatToRMatrix<double>(drone_pose.orientation), "drone");
 }
 
 void readIntrinsicsCallback(const airsim_ros_pkgs::IntrinsicsCamera::ConstPtr& msg)
@@ -518,10 +514,6 @@ int main(int argc, char** argv)
   ros::ServiceClient service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
   airsim_ros_pkgs::Takeoff srv;
   srv.request.waitOnLastTask = false;
-
-  intrinsics_next_state.aperture = 22;
-  intrinsics_next_state.focal_length = 35;
-  intrinsics_next_state.focus_distance = 1000;
 
   // service_take_off.call(srv);
 
@@ -562,7 +554,7 @@ int main(int argc, char** argv)
   fpv_intrinsics_subscriber = n.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
       "/airsim_node/drone_1/set_intrinsics", 1000, boost::bind(&readIntrinsicsCallback, _1));
 
-  low_level_control_publisher = n.advertise<cinempc::LowLevelControl>("cinempc/low_level_control", 10);
+  low_level_control_publisher = n.advertise<cinempc::LowLevelControl>("/cinempc/low_level_control", 1000);
 
   estimation_in_publisher = n.advertise<cinempc::EstimationIn>("cinempc/estimation_in", 10);
 
@@ -583,7 +575,7 @@ int main(int argc, char** argv)
 
   double yaw_step = 0, pitch_step = 0, focal_step = 0, ap_step;
 
-  ros::Rate loop_rate(5);
+  ros::Rate loop_rate(100);
   while (ros::ok() && !stop)
   {
     loop_rate.sleep();

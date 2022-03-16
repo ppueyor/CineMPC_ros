@@ -11,7 +11,6 @@ float focal_length = 35, focus_distance = 10000, aperture = 22;
 int index_splines = -1;
 bool noise = true;
 float sequence = 1;
-int change_sequence_index = 0;
 double steps_each_dt = 50;
 double interval = mpc_dt / steps_each_dt;
 double freq_loop = 1 / interval;
@@ -88,6 +87,12 @@ void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
   yaw_vector = msg->yaw_vector;
   yaw_vector.at(0) = yaw_gimbal;
 
+  // std::cout << endl << endl;
+  // for (double y : yaw_vector)
+  // {
+  //   std::cout << y << endl;
+  // }
+
   double distance = cinempc::calculateDistanceTo3DPoint<double>(
       msg->move_on_path_msg.positions.at(0).x, msg->move_on_path_msg.positions.at(0).y,
       msg->move_on_path_msg.positions.at(0).z, msg->move_on_path_msg.positions.at(MPC_N - 2).x,
@@ -116,7 +121,7 @@ int main(int argc, char** argv)
 
   ros::NodeHandle n;
 
-  low_level_control_subscriber = n.subscribe("cinempc/low_level_control", 1000, lowLevelControlInCallback);
+  low_level_control_subscriber = n.subscribe("/cinempc/low_level_control", 1000, lowLevelControlInCallback);
 
   gimbal_rotation_publisher =
       n.advertise<airsim_ros_pkgs::GimbalAngleQuatCmd>("/airsim_node/gimbal_angle_quat_cmd", 10);
@@ -137,10 +142,18 @@ int main(int argc, char** argv)
   {
     if (index_splines != -1 && index_splines < steps_each_dt)
     {
+      if (index_splines == 0)
+      {
+        double diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
+
+        yaw_step = diff_yaw / steps_each_dt;
+      }
+
       focal_length = interpolate(times_vector, focal_length_vector, interval * index_splines, true);
       focus_distance = interpolate(times_vector, focus_distance_vector, interval * index_splines, true);
       aperture = interpolate(times_vector, aperture_vector, interval * index_splines, true);
       yaw_gimbal = interpolate(times_vector, yaw_vector, interval * index_splines, true);
+      // yaw_gimbal = yaw_gimbal + yaw_step;
       pitch_gimbal = interpolate(times_vector, pitch_vector, interval * index_splines, true);
 
       geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
