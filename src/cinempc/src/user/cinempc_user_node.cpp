@@ -83,7 +83,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.weights.w_R_targets.at(0) = 500;
 
     c.focal_star = desired_focal;
-    c.weights.w_focal = 0.5;
+    c.weights.w_focal = 10;
   }
   else if (sequence == 2)
   {
@@ -92,7 +92,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
                                                         req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) -
         3;
-    c.weights.w_dn = 10;
+    c.weights.w_dn = 15;
     c.df_star =
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
                                                         req.targets_relative.at(0).poses_top.at(0).position.y, 0, 0)) +
@@ -124,9 +124,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
       desired_focal += 5;
     }
     c.focal_star = desired_focal;
-    c.weights.w_focal = 0.5;
-
-    c.weights.w_z = 0;
+    c.weights.w_focal = 0.75;
   }
   else if (sequence == 3)
   {
@@ -185,9 +183,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
       desired_focal += 5;
     }
     c.focal_star = desired_focal;
-    c.weights.w_focal = 0.5;
-
-    c.weights.w_z = 0;
+    c.weights.w_focal = 0.75;
   }
   res.contraints = c;
   return true;

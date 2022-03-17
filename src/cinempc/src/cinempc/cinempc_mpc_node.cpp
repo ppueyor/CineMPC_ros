@@ -298,12 +298,6 @@ public:
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
 		AD<double> current_pixel_v_target_center = pixel_center_target.y;
 
-		if (constraints.weights.w_z > 0)
-		{
-		  AD<double> cost_z = CppAD::pow(vars[z_start + t] - 0, 2);
-		  Jp += constraints.weights.w_z * cost_z;
-		}
-
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{
 		  AD<double> weight = constraints.weights.w_img_targets.at(j).x;
@@ -667,10 +661,11 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	{
 	  if (drone_moving && floor_constraints)
 	  {
-		lowerbound = -0.5;	// y_lowest;
+		lowerbound = -0.3;	// y_lowest;
 		upperbound = msg->floor_pos - 0.2;
 	  }
-	  else if(!floor_constraints){
+	  else if (!floor_constraints)
+	  {
 		lowerbound = z_lowest;
 		upperbound = z_highest;
 	  }
@@ -961,8 +956,10 @@ int main(int argc, char **argv)
   airsim_ros_pkgs::Takeoff srv;
   srv.request.waitOnLastTask = false;
 
-  service_take_off.call(srv);
-
+  if (take_off_when_start)
+  {
+	service_take_off.call(srv);
+  }
   ros::Subscriber new_state_received_sub =
 	  n.subscribe<cinempc::MPCIncomingState>("cinempc/current_state", 1000, newStateReceivedCallback);
   results_pub = n.advertise<cinempc::MPCResult>("cinempc/next_n_states", 100);

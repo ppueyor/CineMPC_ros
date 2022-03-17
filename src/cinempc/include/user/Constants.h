@@ -9,7 +9,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 const double target_height = 1.62, target_width = 0.5;
 
 const bool static_target = true, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true,
-           dynamic_scene = true, publish_topics_gt = true, floor_constraints = true;
+           dynamic_scene = false, publish_topics_gt = true, floor_constraints = true, take_off_when_start = false;
 
 const double target_yaw_gt = PI / 2, target_pitch_gt = 0, drone_start_yaw = -PI / 2;
 
@@ -32,6 +32,7 @@ const double image_y_center = picture_height_px / 2;
 
 const int MPC_N = 5;
 const float mpc_dt = 0.4 * sim_speed;  // sample period MPC
+double steps_each_dt_low_level = 30;
 
 const double min_value = -99999999, max_value = 99999999;
 
@@ -40,9 +41,10 @@ const double x_lowest = min_value, x_highest = max_value;
 const double y_lowest = min_value, y_highest = max_value;
 const double z_lowest = -0.5, z_highest = 50;  // z_higuest depends on floor
 
-const double roll_lowest = -0.03, roll_highest = 0.03;
-const double pitch_lowest = -0.03, pitch_highest = 0.03;
-const double yaw_lowest = -0.03, yaw_highest = 0.03;
+const double ang = 0.01;
+const double roll_lowest = -ang, roll_highest = ang;
+const double pitch_lowest = -ang, pitch_highest = ang;
+const double yaw_lowest = -ang, yaw_highest = ang;
 
 const double foc_lowest = 30, foc_highest = 500;     // 30 500
 const double focus_lowest = 4, focus_highest = 100;  // 4 70
@@ -51,9 +53,9 @@ const double aperture_lowest = 1, aperture_highest = 22;
 const double velos = 2 * sim_speed;
 const double vel_x_lowest = -velos, vel_x_highest = velos;
 const double vel_y_lowest = -velos, vel_y_highest = velos;
-const double vel_z_lowest = -velos, vel_z_highest = velos;
+const double vel_z_lowest = -1, vel_z_highest = 1;
 
-const double vel_ang = 0.03 * sim_speed;
+const double vel_ang = 0.01 * sim_speed;
 const double vel_ang_x_lowest = -vel_ang, vel_ang_x_highest = vel_ang;
 const double vel_ang_y_lowest = -vel_ang, vel_ang_y_highest = vel_ang;
 const double vel_ang_z_lowest = -vel_ang, vel_ang_z_highest = vel_ang;
@@ -69,14 +71,14 @@ const double a_z_lowest = -accel, a_z_highest = accel;
 
 const double circle_confusion = 0.05;  //(mm)
 
-const double tolerance_pixel_x = 7;
-const double tolerance_pixel_y = 5;
+const double tolerance_pixel_x = 2;
+const double tolerance_pixel_y = 2;
 const double tolerance_reduce_weight = 0.01;
 
 // Definition of sequences
 const int start_sequence_1 = 0;  //
-const int start_sequence_2_5 = 20;
-const int start_sequence_3 = 27;
+const int start_sequence_2_5 = 23;
+const int start_sequence_3 = 30;
 
 const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/";
 
@@ -87,4 +89,4 @@ const std::string names_file_yolo = "/home/pablo/Downloads/darknet/cfg/coco.name
 const int kf_states = 6, kf_measurements = 3;
 const double kf_dt = 0.2;
 const double kf_a = 1, kf_c = 1, kf_q = 0.5, kf_r = 0.5, kf_p = 2;
-const double kf_init_x = 0, kf_init_y = -10, kf_init_z = 0, kf_init_vx = 0, kf_init_vy = 0, kf_init_vz = 0;
+const double kf_init_x = 2, kf_init_y = -10, kf_init_z = 0, kf_init_vx = 0, kf_init_vy = 0, kf_init_vz = 0;

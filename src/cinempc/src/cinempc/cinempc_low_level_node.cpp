@@ -11,8 +11,7 @@ float focal_length = 35, focus_distance = 10000, aperture = 22;
 int index_splines = -1;
 bool noise = true;
 float sequence = 1;
-double steps_each_dt = 50;
-double interval = mpc_dt / steps_each_dt;
+double interval = mpc_dt / steps_each_dt_low_level;
 double freq_loop = 1 / interval;
 bool stop = false, low_cost = false;
 
@@ -140,20 +139,12 @@ int main(int argc, char** argv)
   ros::Rate loop_rate(freq_loop * sim_frequency);
   while (ros::ok() && !stop)
   {
-    if (index_splines != -1 && index_splines < steps_each_dt)
+    if (index_splines != -1 && index_splines < steps_each_dt_low_level)
     {
-      if (index_splines == 0)
-      {
-        double diff_yaw = yaw_vector.at(1) - yaw_vector.at(0);
-
-        yaw_step = diff_yaw / steps_each_dt;
-      }
-
       focal_length = interpolate(times_vector, focal_length_vector, interval * index_splines, true);
       focus_distance = interpolate(times_vector, focus_distance_vector, interval * index_splines, true);
       aperture = interpolate(times_vector, aperture_vector, interval * index_splines, true);
       yaw_gimbal = interpolate(times_vector, yaw_vector, interval * index_splines, true);
-      // yaw_gimbal = yaw_gimbal + yaw_step;
       pitch_gimbal = interpolate(times_vector, pitch_vector, interval * index_splines, true);
 
       geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
