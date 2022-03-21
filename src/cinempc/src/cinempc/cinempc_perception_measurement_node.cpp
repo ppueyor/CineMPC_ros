@@ -133,14 +133,14 @@ void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
 
   ros::Time end_log = ros::Time::now();
   ros::Duration diff = end_log - start_log;
-  int time_s = diff.toNSec() / (1000000000 * sim_speed);
+  int time_mss = diff.toNSec() / (1000000 * sim_speed);
 
   std::stringstream depth_name, rgb_name, perception_name;
-  depth_name << folder_name.str() << time_s << "_depth"
+  depth_name << folder_name.str() << time_mss << "_depth"
              << ".jpg";
-  rgb_name << folder_name.str() << time_s << "_rgb"
+  rgb_name << folder_name.str() << time_mss << "_rgb"
            << ".jpg";
-  perception_name << folder_name.str() << time_s << "_perception"
+  perception_name << folder_name.str() << time_mss << "_perception"
                   << ".jpg";
 
   cv::imwrite(depth_name.str(), depth_cv_ptr->image);

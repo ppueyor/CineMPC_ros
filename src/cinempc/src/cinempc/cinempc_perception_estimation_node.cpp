@@ -114,12 +114,12 @@ void updateKalmanWithNewMeasure(const cinempc::EstimationIn::ConstPtr& kf_in_msg
     measurement(2) = kf_in_msg->world_pose_target.position.z;
 
     Eigen::MatrixXd A = getNewAMatrix(kf_in_msg->time_s);
-    kalman_filter_targets.at(kf_in_msg->target_index).update(measurement, A);
+    kalman_filter_targets.at(kf_in_msg->target_index).update(measurement, kf_in_msg->time_s, A);
   }
   else
   {
     Eigen::MatrixXd A = getNewAMatrix(kf_in_msg->time_s);
-    kalman_filter_targets.at(kf_in_msg->target_index).update(A);
+    kalman_filter_targets.at(kf_in_msg->target_index).update(kf_in_msg->time_s, A);
   }
 }
 
