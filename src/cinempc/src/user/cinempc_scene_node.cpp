@@ -52,10 +52,10 @@ int main(int argc, char **argv)
   double current_speed_x = 0, current_speed_y = 0, current_speed_z = 0;
   double current_pitch = 0, current_yaw = 0;
   double steps_velocity = 0.000004;
-  double max_vel = 0.0275;
+  double max_vel = 0.025;
 
   double steps_z = 0.000005;
-  double steps_rot = 0.0002;
+  double steps_rot = 0.00025;
   while (ros::ok())
   {
 	if (sequence == 1)

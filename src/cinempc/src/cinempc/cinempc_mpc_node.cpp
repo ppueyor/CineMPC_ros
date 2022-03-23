@@ -297,7 +297,7 @@ public:
 		AD<double> current_pixel_v_target_up = pixel_up_target.y;
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
 		AD<double> current_pixel_v_target_center = pixel_center_target.y;
-
+		AD<double> weight_x;
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{
 		  AD<double> weight = constraints.weights.w_img_targets.at(j).x;
@@ -308,6 +308,7 @@ public:
 		  {
 			weight = weight * tolerance_reduce_weight;
 		  }
+		  weight_x = weight;
 		  Jim += weight * cost_pixel_u_target;
 		}
 		if (constraints.weights.w_img_targets.at(j).y_top > 0)
@@ -411,6 +412,7 @@ public:
 
 			std::cout << "Jim " << std::endl
 					  << "--------- " << std::endl
+					  << "   weight_x:  " << weight_x << std::endl
 					  << "   current_pixel_u_target:  " << current_pixel_u_target << std::endl
 					  << "   current_pixel_u_target_desired:  " << constraints.targets_im_top_star.at(j).x << std::endl
 					  << "   current_pixel_v_up_target:  " << current_pixel_v_target_up << std::endl

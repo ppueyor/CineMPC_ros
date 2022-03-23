@@ -52,7 +52,7 @@ public:
    */
   void update(const Eigen::VectorXd& y, bool measure);
 
-  Eigen::MatrixXd predict(int kf_time_each_mpc, int max_time_steps);
+  Eigen::MatrixXd predict(int kf_states);
 
   /**
    * Update the estimated state based on measured values,

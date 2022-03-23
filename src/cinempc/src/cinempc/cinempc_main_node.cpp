@@ -65,7 +65,8 @@ void logRPY(Eigen::Matrix<double, 3, 3> R, string name)
 
 void logPosition(geometry_msgs::Point pos, string name)
 {
-  double distance_2D_target = cinempc::calculateDistanceTo2DPoint<double>(0, 0, pos.x, pos.y);
+  double distance_2D_target =
+      cinempc::calculateDistanceTo2DPoint<double>(drone_pose.position.x, drone_pose.position.y, pos.x, pos.y);
   std::cout << name << std::endl
             << "--------- " << std::endl
             << "   x  " << pos.x << " y:   " << pos.y << " z: " << pos.z << "  Distance: " << distance_2D_target
@@ -96,7 +97,7 @@ cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_
   geometry_msgs::Pose world_pose_center, world_pose_bottom;
   geometry_msgs::Pose drone_pose_top, drone_pose_center, drone_pose_bottom;
 
-  float target_z_center = world_pose_top.position.z + 0.5;
+  float target_z_center = world_pose_top.position.z + 0.5;  // target_height / 2;  // careful with Tuareg
   float target_z_bottom = world_pose_top.position.z + target_height;
 
   world_pose_center.position.x = world_pose_top.position.x;
@@ -109,9 +110,9 @@ cinempc::TargetState fulfillRelativePosesFromWorldTop(geometry_msgs::Pose world_
   world_pose_bottom.position.z = target_z_bottom;
   world_pose_bottom.orientation = world_pose_top.orientation;
 
-  result.pose_top = cinempc::calculate_relative_pose_drone_target<double>(world_pose_top, drone_pose_now);
-  result.pose_center = cinempc::calculate_relative_pose_drone_target<double>(world_pose_center, drone_pose_now);
-  result.pose_bottom = cinempc::calculate_relative_pose_drone_target<double>(world_pose_bottom, drone_pose_now);
+  result.pose_top = cinempc::calculate_relative_pose_drone_target<double>(world_pose_top, drone_pose);
+  result.pose_center = cinempc::calculate_relative_pose_drone_target<double>(world_pose_center, drone_pose);
+  result.pose_bottom = cinempc::calculate_relative_pose_drone_target<double>(world_pose_bottom, drone_pose);
 
   return result;
 }
@@ -156,7 +157,7 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
   {
     ros::Time end_measure = ros::Time::now();
     ros::Duration time_measure = end_measure - start_measure;
-    double time_s = time_measure.toSec() / sim_speed;
+    double time_s = time_measure.toSec();
     cinempc::EstimationIn estimation_in_msg;
     estimation_in_msg.world_pose_target = wTtop_measure;
     estimation_in_msg.target_index = target_index;
@@ -193,7 +194,7 @@ void readTargetStatePerceptionCallback(const cinempc::MeasurementOut::ConstPtr& 
         {
           geometry_msgs::Pose wTtop_measure = cinempc::calculate_world_pose_from_relative<double>(
               msg->drone_state.drone_pose, target_state.pose_top, false);
-          wTtop_measure.position.z += 0.2;  // face
+          wTtop_measure.position.z;  // face
 
           cinempc::EstimationIn estimation_in_msg;
           estimation_in_msg.world_pose_target = wTtop_measure;
@@ -335,6 +336,7 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
     airsim_ros_pkgs::MoveOnPath msg_move_on_path;
     double max_vel = max(0.1, max(max_vel_x, max(max_vel_y, max_vel_z)));
 
+    std::cout << max_vel << endl;
     low_level_control_msg.move_on_path_msg.vel = max_vel;
     low_level_control_msg.move_on_path_msg.timeout = 10;
     low_level_control_msg.move_on_path_msg.rads_yaw = cinempc::quatToRPY<double>(drone_pose.orientation).yaw;
@@ -407,11 +409,12 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       for (int t = 0; t < MPC_N; t++)
       {
         geometry_msgs::Pose world_pose_top_kf = world_top_poses.at(t);
-        // logPosition(world_pose_top_kf.position, to_string(t));
+        logPosition(world_pose_top_kf.position, "predicted");
         if (t == 0)
         {
           plot_values.target_world_kf = world_pose_top_kf.position;
           plot_values.v_target_kf = srv_get_poses.response.velocity_target_kf;
+          logPosition(plot_values.v_target_kf, "velocity");
         }
 
         plot_values.target_rot_gt = cinempc::RPYToQuat<double>(0, 0, target_yaw_gt);

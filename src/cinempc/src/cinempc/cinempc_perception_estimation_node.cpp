@@ -63,16 +63,19 @@ const Eigen::MatrixXd getNewAMatrix(double dt_kf)
 bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
                                  cinempc::GetNNextTargetPoses::Response& res)
 {
-  Eigen::MatrixXd new_states(req.mpc_N, kalman_filter_targets.at(req.target_index).numberOfStates());
+  int kf_steps_each_mpc = round(mpc_dt / kalman_filter_targets.at(req.target_index).get_dt());
 
-  double kf_time_each_mpc = req.mpc_dt / kalman_filter_targets.at(req.target_index).get_dt();
-  new_states = kalman_filter_targets.at(req.target_index).predict(kf_time_each_mpc, MPC_N);
+  int kf_states = kf_steps_each_mpc * MPC_N;
+
+  Eigen::MatrixXd new_states(kf_states, kalman_filter_targets.at(req.target_index).numberOfStates());
+
+  new_states = kalman_filter_targets.at(req.target_index).predict(kf_states);
 
   geometry_msgs::Point new_position, new_vel;
 
   std::vector<geometry_msgs::Pose> poses;
 
-  for (int i = 0; i < MPC_N; i++)
+  for (int i = 0; i < kf_states; i += kf_steps_each_mpc)
   {
     geometry_msgs::Point new_vel;
     geometry_msgs::Pose target_pose;
@@ -148,7 +151,7 @@ int main(int argc, char** argv)
           "get_n_target_poses",
           boost::bind(&predictNWorldTopPosesFromKF, _1, _2));
 
-  ros::Rate loop_rate(200);
+  ros::Rate loop_rate(400);
   while (ros::ok())
   {
     loop_rate.sleep();
