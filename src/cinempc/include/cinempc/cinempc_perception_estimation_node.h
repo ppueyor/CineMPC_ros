@@ -12,5 +12,3 @@
 
 ros::Publisher gimbal_rotation_publisher;
 ros::Publisher move_on_path_publisher;
-
-ros::Subscriber KF_subscriber;

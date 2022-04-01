@@ -1,10 +1,4 @@
 <launch> 
-<!-- AirSim all -->
-<!--	<include file="$(find airsim_ros_pkgs)/launch/airsim_all.launch"/>-->
-<!-- Change sequence Node -->
-	<!--<include file="$(find cinempc)/launch/change_sequence_node.launch"/>	-->
-<!-- Cinempc solver node -->
-<!-- Cinempc main node -->
 	<!-- <include file="$(find cinempc)/launch/cine_mpc_main_node.launch"/>	 -->
 	<node name="cinempc_mpc_node" pkg="cinempc" type="cinempc_mpc_node"  output="screen"></node>  
 	<node name="cinempc_scene_node" pkg="cinempc" type="cinempc_scene_node"  output="screen"></node>

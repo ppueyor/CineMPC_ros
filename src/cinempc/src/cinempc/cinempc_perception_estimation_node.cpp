@@ -51,7 +51,7 @@ KalmanFilterEigen initializeKalmanFilterTarget()
 
 const Eigen::MatrixXd getNewAMatrix(double dt_kf)
 {
-  int n = 6;                // Number of states
+  int n = kf_states;        // Number of states
   Eigen::MatrixXd A(n, n);  // System dynamics matrix
 
   A << 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, dt_kf, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
@@ -64,41 +64,38 @@ bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
                                  cinempc::GetNNextTargetPoses::Response& res)
 {
   int kf_steps_each_mpc = round(mpc_dt / kalman_filter_targets.at(req.target_index).get_dt());
-
   int kf_states = kf_steps_each_mpc * MPC_N;
 
   Eigen::MatrixXd new_states(kf_states, kalman_filter_targets.at(req.target_index).numberOfStates());
-
   new_states = kalman_filter_targets.at(req.target_index).predict(kf_states);
-
-  geometry_msgs::Point new_position, new_vel;
 
   std::vector<geometry_msgs::Pose> poses;
 
   for (int i = 0; i < kf_states; i += kf_steps_each_mpc)
   {
-    geometry_msgs::Point new_vel;
+    geometry_msgs::Point target_vel;
     geometry_msgs::Pose target_pose;
 
     target_pose.position.x = new_states(i, 0);
     target_pose.position.y = new_states(i, 1);
     target_pose.position.z = new_states(i, 2);
-    new_vel.x = new_states(i, 3);
-    new_vel.y = new_states(i, 4);
-    new_vel.z = new_states(i, 5);
+    target_vel.x = new_states(i, 3);
+    target_vel.y = new_states(i, 4);
+    target_vel.z = new_states(i, 5);
 
     if (i == 0)
     {
-      res.velocity_target_kf = new_vel;
+      res.velocity_target_kf = target_vel;
     }
 
     if (!static_target)
     {
-      target_pose.orientation = cinempc::predictWorldOrientationFromVelocity<double>(new_vel.x, new_vel.y, new_vel.z);
+      target_pose.orientation =
+          cinempc::predict_target_world_orientation_from_velocity<double>(target_vel.x, target_vel.y, target_vel.z);
     }
     else
     {
-      target_pose.orientation = cinempc::RPYToQuat<double>(0, 0, target_yaw_gt);
+      target_pose.orientation = cinempc::RPY_to_quat<double>(0, 0, target_1_yaw_gt);
     }
 
     poses.push_back(target_pose);
@@ -143,7 +140,8 @@ int main(int argc, char** argv)
 
   initializeTargets();
 
-  KF_subscriber = n.subscribe<cinempc::EstimationIn>("cinempc/estimation_in", 1000, updateKalmanWithNewMeasure);
+  ros::Subscriber KF_subscriber =
+      n.subscribe<cinempc::EstimationIn>("cinempc/estimation_in", 1000, updateKalmanWithNewMeasure);
 
   ros::ServiceServer service =
       n.advertiseService<cinempc::GetNNextTargetPoses::Request, cinempc::GetNNextTargetPoses::Response>(

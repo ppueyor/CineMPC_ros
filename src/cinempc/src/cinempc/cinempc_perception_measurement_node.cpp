@@ -1,11 +1,9 @@
 #include "cinempc/cinempc_perception_measurement_node.h"
 
-using namespace cv;
-using namespace std;
-
 ros::Time start_log;
-int pictures_received = 0;
+int images_received = 0;
 std::stringstream folder_name, name_depth, name_rgb, name_perception;
+
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
 float calculateAverageDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
 {
@@ -65,24 +63,23 @@ float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box
   return closest_points_per_row.at(median) * 100000;
 }
 
-cinempc::TargetState calculateTarget(DarkHelp::PredictionResult result, cv_bridge::CvImagePtr depth_cv_ptr,
-                                     const cinempc::MeasurementIn& msg_in)
+cinempc::TargetState extractTargetStateFromImg(DarkHelp::PredictionResult result, cv_bridge::CvImagePtr depth_cv_ptr,
+                                               const cinempc::MeasurementIn& msg_in)
 {
   Rect bb_target = result.rect;
   float target_u_center = bb_target.x + (bb_target.width / 2);
-  float target_v_top = bb_target.y;  // + (rect1.height);
+  float target_v_top = bb_target.y;
   float target_v_center = bb_target.y + (bb_target.height / 2);
 
   float depth_target = calculateMedianDepth(depth_cv_ptr, bb_target);  // convert to mms
-  geometry_msgs::Quaternion wRt = cinempc::RPYToQuat<double>(0, 0, 0);
+  geometry_msgs::Quaternion wRt = cinempc::RPY_to_quat<double>(0, 0, 0);
 
-  geometry_msgs::Pose relative_pose_top = cinempc::drone_relative_position_from_image<double>(
+  geometry_msgs::Pose relative_pose_top = cinempc::drone_target_relative_position_from_image<double>(
       msg_in.drone_state.intrinsics.focal_length, target_u_center, target_v_top, depth_target,
       msg_in.drone_state.drone_pose.orientation, wRt);
 
   cinempc::TargetState target_state;
   target_state.pose_top = relative_pose_top;
-  // target_state.pose_top.position.z = perception_out_msg.target_state.pose_top.position.z + 0.2;
   target_state.target_name = result.name;
 
   return target_state;
@@ -122,14 +119,15 @@ void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
       {
         if (result_vector.name.find(target_class) != std::string::npos && result_vector.best_probability > 0.8)
         {
-          targets_state.push_back(calculateTarget(result_vector, depth_cv_ptr, msg));
+          targets_state.push_back(extractTargetStateFromImg(result_vector, depth_cv_ptr, msg));
           targetsFound++;
         }
       }
     }
   }
 
-  if (pictures_received % 2 == 0)
+  // avoids saving too many images
+  if (images_received % 2 == 0 && save_imgs)
   {
     cv::Mat output = darkhelp.annotate();
 
@@ -138,6 +136,7 @@ void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
     int time_mss = diff.toNSec() / (1000000);
 
     std::stringstream depth_name, rgb_name, perception_name;
+
     depth_name << folder_name.str() << time_mss << "_depth"
                << ".jpg";
     rgb_name << folder_name.str() << time_mss << "_rgb"
@@ -145,15 +144,13 @@ void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
     perception_name << folder_name.str() << time_mss << "_perception"
                     << ".jpg";
 
-    // cv::imwrite(depth_name.str(), depth_cv_ptr->image);
     cv::imwrite(rgb_name.str(), rgb_cv_ptr->image);
     cv::imwrite(perception_name.str(), output);
   }
-  pictures_received++;
+  images_received++;
   cinempc::MeasurementOut perception_out_msg;
   perception_out_msg.targets_found = targetsFound;
   perception_out_msg.drone_state.drone_pose = msg.drone_state.drone_pose;
-
   perception_out_msg.targets_state = targets_state;
 
   perception_result_publisher.publish(perception_out_msg);

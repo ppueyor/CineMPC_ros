@@ -1,36 +1,13 @@
-#include <cppad/cppad.hpp>
-
 #include "cinempc/cinempc_mpc_node.h"
-#include "cppad/ipopt/solve.hpp"
-#include "opencv2/features2d/features2d.hpp"
-#include "opencv2/highgui.hpp"
-//#include "opencv2/xfeatures2d.hpp"
-
-using CppAD::AD;
-using namespace Eigen;
-using namespace std;
-// Set the timestep length and duration
 
 std::vector<cinempc::TargetStateMPC> target_states;
 
-struct Pixel_MPC
-{
-  AD<double> x;
-  AD<double> y;
-};
-
-AD<double> current_Ji, current_Jp, current_JDoF, dn_plot, df_plot, roll_plot, roll_plot_d, pitch_plot, pitch_plot_d,
-	yaw_plot, yaw_plot_d, hyper_plot;
-std::vector<Pixel_MPC> current_pixel_target_up_plot, current_pixel_target_down_plot, current_pixel_target_up_d_plot,
-	current_pixel_target_down_d_plot;
-std::vector<AD<double>> d_target_plot;
 cinempc::Constraints constraints;
 cinempc::MPCResultPlotValues plot_values;
 
 ros::Publisher results_pub;
 
 // indexes to reference variables inside the `vars` vector
-
 size_t x_start = 0;
 size_t y_start = x_start + MPC_N;
 size_t z_start = y_start + MPC_N;
@@ -84,147 +61,6 @@ Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order)
   return result;
 }
 
-// mms
-AD<double> hyperFocalDistance(AD<double> focal_length, AD<double> aperture)
-{
-  AD<double> div = 0.0;
-  AD<double> term1 = (AD<double>)(CppAD::pow(focal_length, 2) + 0.00001);
-  AD<double> term2 = (AD<double>)((aperture * circle_confusion) + 0.00001);
-  div = (AD<double>)term1 / (AD<double>)term2;
-
-  // std::cout << "current_distance:" << currentDistance << std::endl;
-  /*std::cout << "aperture  " << aperture << "terms:" << term1 << "  " << term2
-   << "   " << div << std::endl;*/
-
-  return div + focal_length;
-}
-
-AD<double> nearAcceptableDistance(AD<double> focus_distance, AD<double> hyperfocal_distance, AD<double> focal_length)
-{
-  AD<double> term1 = focus_distance * (hyperfocal_distance - focal_length);
-  AD<double> term2 = hyperfocal_distance + focus_distance - 2 * focal_length;
-
-  AD<double> div = (AD<double>)term1 / (AD<double>)term2;
-
-  // std::cout << "current_distance:" << currentDistance << std::endl;
-  /*std::cout  << "hyperfocal_distance:  "<< hyperfocal_distance
-   << "    focal_length:   "<< focal_length <<
-   "terms:"<< term1 <<"  "<<term2 <<"   " << div << std::endl;*/
-  return (div);
-}
-
-AD<double> farAcceptableDistance(AD<double> focus_distance, AD<double> hyperfocal_distance, AD<double> focal_length)
-{
-  AD<double> term1 = focus_distance * (hyperfocal_distance - focal_length);
-  AD<double> term2 = hyperfocal_distance - focus_distance;
-
-  AD<double> div = (AD<double>)term1 / (AD<double>)term2;
-
-  // std::cout << "current_distance:" << currentDistance << std::endl;
-  /*std::cout  << "hyperfocal_distance:  "<< hyperfocal_distance
-   << "    focal_length:   "<< focal_length <<
-   "terms:"<< term1 <<"  "<<term2 <<"   " << div << std::endl;*/
-  return (div);
-}
-
-// from slides of AROB
-Eigen::Matrix<AD<double>, 3, 3> wedgeOperator(Eigen::Matrix<AD<double>, 3, 1> M)
-{
-  Eigen::Matrix<AD<double>, 3, 3> Wedged;
-  Wedged(0, 0) = 0;
-  Wedged(0, 1) = -M(2);
-  Wedged(0, 2) = M(1);
-  Wedged(1, 0) = M(2);
-  Wedged(1, 1) = 0;
-  Wedged(1, 2) = -M(0);
-  Wedged(2, 0) = -M(1);
-  Wedged(2, 1) = M(0);
-  Wedged(2, 2) = 0;
-
-  return (Wedged);
-}
-
-// from slides of AROB
-Eigen::Matrix<AD<double>, 3, 3> convertMatrixToDiff(Eigen::Matrix<double, 3, 3> M)
-{
-  Eigen::Matrix<AD<double>, 3, 3> R_diff;
-  R_diff(0, 0) = M(0, 0);
-  R_diff(0, 1) = M(0, 1);
-  R_diff(0, 2) = M(0, 2);
-  R_diff(1, 0) = M(1, 0);
-  R_diff(1, 1) = M(1, 1);
-  R_diff(1, 2) = M(1, 2);
-  R_diff(2, 0) = M(2, 0);
-  R_diff(2, 1) = M(2, 1);
-  R_diff(2, 2) = M(2, 2);
-
-  return (R_diff);
-}
-
-Eigen::Matrix<AD<double>, 3, 3> expWedgeOperator(Eigen::Matrix<AD<double>, 3, 1> M)
-{
-  Eigen::Matrix<AD<double>, 3, 3> I = Eigen::Matrix<AD<double>, 3, 3>::Identity(3, 3);
-
-  Eigen::Matrix<AD<double>, 3, 1> RotationAxis;
-  AD<double> rotationAngle;
-  if (M(0) == 0 && M(1) == 0 && M(2) == 0)
-  {
-	rotationAngle = 0;
-	RotationAxis = Eigen::Matrix<AD<double>, 3, 1>::Zero(3, 1);
-  }
-  else
-  {
-	rotationAngle = M.norm();
-	RotationAxis = M / rotationAngle;
-  }
-
-  Eigen::Matrix<AD<double>, 3, 3> WedgedMatrix = wedgeOperator(RotationAxis);
-
-  Eigen::Matrix<AD<double>, 3, 3> Result;
-  Result = I + sin(rotationAngle) * WedgedMatrix + (1 - cos(rotationAngle)) * (WedgedMatrix * WedgedMatrix);
-
-  return (Result);
-}
-
-Pixel_MPC readPixel(AD<double> focal_length_mm, AD<double> relative_position_x_m, AD<double> relative_position_y_m,
-					AD<double> relative_position_z_m, Eigen::Matrix<AD<double>, 3, 3> R)
-{
-  // Read comment to understand change of variables
-  AD<double> distance_y_mm = relative_position_y_m * 1000;	// ms to mms
-  AD<double> distance_z_mm = relative_position_z_m * 1000;
-  AD<double> distance_x_mm = relative_position_x_m * 1000;
-
-  Eigen::Matrix<AD<double>, 3, 1> P(distance_x_mm, distance_y_mm, distance_z_mm);
-  Eigen::Matrix<AD<double>, 3, 1> rPs = R.transpose() * P;
-
-  Eigen::Matrix<AD<double>, 3, 1> vectorPixels(rPs(1), rPs(2), rPs(0));
-
-  AD<double> x0_mm = sensor_width_mm / 2;
-  AD<double> y0_mm = sensor_height_mm / 2;
-
-  AD<double> x_mm = x0_mm + ((focal_length_mm * vectorPixels(0)) / vectorPixels(2));
-  AD<double> y_mm = y0_mm + ((focal_length_mm * vectorPixels(1)) / vectorPixels(2));
-
-  AD<double> xPixels_px = x_mm * picture_width_px / sensor_width_mm;
-
-  AD<double> yPixels_px = y_mm * picture_height_px / sensor_height_mm;
-
-  Pixel_MPC p;
-  p.x = xPixels_px;
-  p.y = yPixels_px;
-
-  return (p);
-}
-
-void logRPY(Eigen::Matrix<AD<double>, 3, 3> R, string name)
-{
-  cinempc::RPY<AD<double>> wRs2 = cinempc::RMatrixtoRPY<AD<double>>(R);
-
-  std::cout << name << std::endl
-			<< "--------- " << std::endl
-			<< "   R-P-Y:wRd  " << wRs2.roll << " pitch:   " << wRs2.pitch << " YAW: " << wRs2.yaw << std::endl;
-}
-
 class FG_eval
 {
 public:
@@ -239,19 +75,20 @@ public:
   void operator()(ADvector &fg, const ADvector &vars)
   {
 	// calculate errors
-	int seq = 0, closest_target_index = 0;
+	int index_closest_target = 0;
 	AD<double> distance_2D_target, minimum_distance_2D_target = 10000;
 	for (int t = 0; t < MPC_N; t++)
 	{
 	  AD<double> Jp = 0, Jim = 0, JDoF = 0, JFoc = 0;
-	  // Cost_DoF
-	  AD<double> hyperfocal_distance_mms = hyperFocalDistance(vars[focal_length_start + t], vars[aperture_start + t]);
+	  // J_DoF
+	  AD<double> hyperfocal_distance_mms =
+		  cinempc::calculate_hyperfocal_distance_DoF<AD<double>>(vars[focal_length_start + t], vars[aperture_start + t]);
 
-	  AD<double> near_acceptable_distance = nearAcceptableDistance(
+	  AD<double> near_acceptable_distance = cinempc::calculate_near_distance_DoF<AD<double>>(
 		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
 		  (AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
 
-	  AD<double> far_acceptable_distance = farAcceptableDistance(
+	  AD<double> far_acceptable_distance = cinempc::calculate_far_distance_DoF<AD<double>>(
 		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
 		  (AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
 
@@ -261,6 +98,7 @@ public:
 	  AD<double> cost_far = CppAD::pow(far_acceptable_distance - constraints.df_star, 2);
 	  JDoF += constraints.weights.w_df * (cost_far);
 
+	  // J_f
 	  if (constraints.weights.w_focal > 0)
 	  {
 		AD<double> cost_foc = CppAD::pow(vars[focal_length_start + t] - constraints.focal_star, 2);
@@ -278,26 +116,25 @@ public:
 		AD<double> relative_z_down_target = target_states.at(j).poses_bottom.at(t).position.z - (vars[z_start + t]);
 
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
-			cinempc::quatToRMatrix<AD<double>>(target_states.at(j).poses_top.at(t).orientation);
+			cinempc::quat_to_R_matrix<AD<double>>(target_states.at(j).poses_top.at(t).orientation);
 
-		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPYtoRMatrix<AD<double>>(
+		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPY_to_R_matrix<AD<double>>(
 			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
 
-		// Cost_img
-		Pixel_MPC pixel_up_target = readPixel(vars[focal_length_start + t],	 // head
-											  relative_x_target, relative_y_target, relative_z_up_target, new_drone_R);
+		// J_im
+		cinempc::Pixel<AD<double>> pixel_up_target = cinempc::calculate_image_position_from_3D<AD<double>>(
+			vars[focal_length_start + t], relative_x_target, relative_y_target, relative_z_up_target, new_drone_R);
 
-		Pixel_MPC pixel_down_target = readPixel(vars[focal_length_start + t], relative_x_target, relative_y_target,
-												relative_z_down_target, new_drone_R);
+		cinempc::Pixel<AD<double>> pixel_down_target = cinempc::calculate_image_position_from_3D<AD<double>>(
+			vars[focal_length_start + t], relative_x_target, relative_y_target, relative_z_down_target, new_drone_R);
 
-		Pixel_MPC pixel_center_target = readPixel(vars[focal_length_start + t], relative_x_target, relative_y_target,
-												  relative_z_center_target, new_drone_R);
+		cinempc::Pixel<AD<double>> pixel_center_target = cinempc::calculate_image_position_from_3D<AD<double>>(
+			vars[focal_length_start + t], relative_x_target, relative_y_target, relative_z_center_target, new_drone_R);
 
 		AD<double> current_pixel_u_target = pixel_up_target.x;
 		AD<double> current_pixel_v_target_up = pixel_up_target.y;
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
 		AD<double> current_pixel_v_target_center = pixel_center_target.y;
-		AD<double> weight_x;
 		if (constraints.weights.w_img_targets.at(j).x > 0)
 		{
 		  AD<double> weight = constraints.weights.w_img_targets.at(j).x;
@@ -308,7 +145,6 @@ public:
 		  {
 			weight = weight * tolerance_reduce_weight;
 		  }
-		  weight_x = weight;
 		  Jim += weight * cost_pixel_u_target;
 		}
 		if (constraints.weights.w_img_targets.at(j).y_top > 0)
@@ -349,13 +185,13 @@ public:
 		  Jim += weight * cost_pixel_v_target_bottom;
 		}
 
-		// Cost_P
+		// J_p
 		distance_2D_target =
 			cinempc::calculateDistanceTo2DPoint<AD<double>>(0, 0, relative_x_target, relative_y_target);
 		if (distance_2D_target < minimum_distance_2D_target)
 		{
 		  minimum_distance_2D_target = distance_2D_target;
-		  closest_target_index = j;
+		  index_closest_target = j;
 		}
 
 		if (constraints.weights.w_d_targets.at(j) > 0)
@@ -367,13 +203,9 @@ public:
 		if (constraints.weights.w_R_targets.at(j) > 0)
 		{
 		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star =
-			  cinempc::quatToRMatrix<AD<double>>(constraints.targets_orientation_star.at(j));
+			  cinempc::quat_to_R_matrix<AD<double>>(constraints.targets_orientation_star.at(j));
 		  new_drone_R_target = new_drone_R.transpose() * drone_R_target;
-		  if (t == 0)
-		  {
-			// logRPY(drone_R_star, "drone_R_star");
-			// logRPY(new_drone_R_target, "new_drone_R_target");
-		  }
+
 		  AD<double> cost_R_target = (new_drone_R_target - drone_R_star).norm();
 		  Jp += constraints.weights.w_R_targets.at(j) * cost_R_target;
 		}
@@ -397,9 +229,9 @@ public:
 		  plot_values.intrinsics_camera.focus_distance = Value(vars[focus_distance_start + 0]) * 100;
 
 		  plot_values.d_gt = Value(distance_2D_target);
-		  plot_values.relative_roll = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).roll);
-		  plot_values.relative_yaw = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw);
-		  plot_values.relative_pitch = Value(cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch);
+		  plot_values.relative_roll = Value(cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).roll);
+		  plot_values.relative_yaw = Value(cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).yaw);
+		  plot_values.relative_pitch = Value(cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).pitch);
 
 		  if (log_costs)
 		  {
@@ -412,7 +244,6 @@ public:
 
 			std::cout << "Jim " << std::endl
 					  << "--------- " << std::endl
-					  << "   weight_x:  " << weight_x << std::endl
 					  << "   current_pixel_u_target:  " << current_pixel_u_target << std::endl
 					  << "   current_pixel_u_target_desired:  " << constraints.targets_im_top_star.at(j).x << std::endl
 					  << "   current_pixel_v_up_target:  " << current_pixel_v_target_up << std::endl
@@ -435,16 +266,16 @@ public:
 					  << "--------- " << std::endl
 					  << "   d_target:  " << distance_2D_target << std::endl
 					  << "   d_target_desired:  " << constraints.targets_d_star.at(j) << std::endl
-					  << "   roll_target:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).roll << std::endl
+					  << "   roll_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).roll << std::endl
 					  << "   roll_target_desired:  "
-					  << cinempc::quatToRPY<AD<double>>(constraints.targets_orientation_star.at(j)).roll << endl
-					  << "   yaw_target:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).yaw << std::endl
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).roll << endl
+					  << "   yaw_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).yaw << std::endl
 					  << "   yaw_target_desired:  "
-					  << cinempc::quatToRPY<AD<double>>(constraints.targets_orientation_star.at(j)).yaw << endl
-					  << "   pitch_target:  " << cinempc::RMatrixtoRPY<AD<double>>(new_drone_R_target).pitch
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).yaw << endl
+					  << "   pitch_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).pitch
 					  << std::endl
 					  << "   pitch_target_desired:  "
-					  << cinempc::quatToRPY<AD<double>>(constraints.targets_orientation_star.at(j)).pitch << std::endl;
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).pitch << std::endl;
 
 			std::cout << "RELATIVE DISTANCE " << std::endl
 					  << "--------- " << std::endl
@@ -533,8 +364,8 @@ public:
 	  AD<double> vel_z1 = vars[vel_z_start + t];
 
 	  fg[t] = cinempc::calculateDistanceTo2DPoint<AD<double>>(
-		  x1, y1, target_states.at(closest_target_index).poses_top.at(t).position.x,
-		  target_states.at(closest_target_index).poses_top.at(t).position.y);
+		  x1, y1, target_states.at(index_closest_target).poses_top.at(t).position.x,
+		  target_states.at(index_closest_target).poses_top.at(t).position.y);
 
 	  // Setup the rest of the model constraints
 	  fg[MPC_N + x_start + t] = x1 - (x0 + vel_x0 * mpc_dt);
@@ -542,17 +373,16 @@ public:
 	  fg[MPC_N + z_start + t] = z1 - (z0 + vel_z0 * mpc_dt);
 
 	  // rotation dynamics
-	  Eigen::Matrix<AD<double>, 3, 3> R = cinempc::RPYtoRMatrix<AD<double>>(roll0, pitch0, yaw0);
-
+	  Eigen::Matrix<AD<double>, 3, 3> R = cinempc::RPY_to_R_matrix<AD<double>>(roll0, pitch0, yaw0);
 	  Eigen::Matrix<AD<double>, 3, 3> R1;
 	  Eigen::Matrix<AD<double>, 3, 1> angularVelocityVector(vel_ang_x0 + 0.000001, vel_ang_y0 + 0.000001,
 															vel_ang_z0 + 0.000001);
 
-	  Eigen::Matrix<AD<double>, 3, 3> wedgeFromAngularV = expWedgeOperator(angularVelocityVector * mpc_dt);
-
+	  Eigen::Matrix<AD<double>, 3, 3> wedgeFromAngularV =
+		  cinempc::exp_wedge_operator<AD<double>>(angularVelocityVector * mpc_dt);
 	  R1 = R * wedgeFromAngularV;
 
-	  cinempc::RPY<AD<double>> RPYVector = cinempc::RMatrixtoRPY<AD<double>>(R1);
+	  cinempc::RPY<AD<double>> RPYVector = cinempc::R_matrix_to_RPY<AD<double>>(R1);
 	  fg[MPC_N + roll_gimbal_start + t] = roll1 - (RPYVector.roll);
 	  fg[MPC_N + pitch_gimbal_start + t] = pitch1 - (RPYVector.pitch);
 	  fg[MPC_N + yaw_gimbal_start + t] = yaw1 - (RPYVector.yaw);
@@ -579,8 +409,6 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   constraints = msg->constraints;
 
   // number of independent variables
-  // N timesteps == N - 1 actuationsb
-
   size_t n_vars = MPC_N * 12 + 9 * (MPC_N - 1);	 // accelerations + constraints
 
   // Number of constraints
@@ -594,20 +422,12 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	vars[i] = 0;
   }
 
-  for (int i = 0; i < target_states.size(); i++)
-  {
-	Pixel_MPC empty_pixel;
-	d_target_plot.push_back(0);
-	current_pixel_target_up_plot.push_back(empty_pixel);
-	current_pixel_target_down_plot.push_back(empty_pixel);
-  }
-
   // Set the initial variable values
   vars[x_start] = msg->drone_state.drone_pose.position.x;
   vars[y_start] = msg->drone_state.drone_pose.position.y;
   vars[z_start] = msg->drone_state.drone_pose.position.z;
 
-  cinempc::RPY<double> rpy = cinempc::quatToRPY<double>(msg->drone_state.drone_pose.orientation);
+  cinempc::RPY<double> rpy = cinempc::quat_to_RPY<double>(msg->drone_state.drone_pose.orientation);
 
   vars[roll_gimbal_start] = rpy.roll;
   vars[pitch_gimbal_start] = rpy.pitch;
@@ -625,11 +445,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   Dvector vars_upperbound(n_vars);
 
   // Set all non-actuators upper and lowerlimits
-  // to the max negative and positive values.
-
-  // Acceleration/decceleration upper and lower limits.
-  // NOTE: Feel free to change this to something else.
-
+  // to the max negative and positive values
   for (int i = 0; i < n_vars; i++)
   {
 	double lowerbound, upperbound;
@@ -812,8 +628,6 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	vars_upperbound[i] = upperbound;
   }
 
-  // *** Lower and upper limits for the constraints
-  // Should be 0 besides initial state.
   Dvector constraints_lowerbound(n_constraints);
   Dvector constraints_upperbound(n_constraints);
 
@@ -936,15 +750,6 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	}
 
 	response_msg.plot_values = plot_values;
-
-	// for (int i = 0; i < target_states.size(); i++)
-	// {
-	//   response_msg.plot_values.push_back(Value(d_target_plot.at(i)));
-	//   response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).x));
-	//   response_msg.plot_values.push_back(Value(current_pixel_target_up_plot.at(i).y));
-	//   response_msg.plot_values.push_back(Value(current_pixel_target_down_plot.at(i).x));
-	// }
-
 	results_pub.publish(response_msg);
   }
 }

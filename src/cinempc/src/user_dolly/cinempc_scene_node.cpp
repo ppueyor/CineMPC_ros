@@ -1,16 +1,13 @@
 #include <geometry_msgs/PoseArray.h>
 #include <ros/spinner.h>
 #include <std_msgs/Float32.h>
-#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
-#include "common/AirSimSettings.hpp"
 #include "ros/ros.h"
 #include "user/Constants.h"
 
 float sequence = 1;
-std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step,
-	yaw_target;	 // for each target
+std::vector<double> move_target_x_per_step, move_target_y_per_step, move_target_z_per_step, yaw_target;
 std::vector<ros::Publisher> move_target_pub_vector, speed_target_pub;
 
 std::vector<geometry_msgs::PoseStamped> initial_state_target_vector;
@@ -25,6 +22,7 @@ double calculateSpeed(double speed_freq, double freq)
   double time = 1 / freq;
   return (speed_freq / time) * sim_speed;
 }
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "scene_node");
@@ -41,21 +39,24 @@ int main(int argc, char **argv)
 	speed_target_pub.push_back(
 		n.advertise<geometry_msgs::Point>("airsim_node/" + targets_names.at(i) + "/current_speed", 1000));
 
-	move_target_x_per_step.push_back(0);  // - camera_adjustement;
+	move_target_x_per_step.push_back(0);
 	move_target_y_per_step.push_back(0);
 	move_target_z_per_step.push_back(0);
 	yaw_target.push_back(0);
   }
+
   ros::Subscriber change_sequence_sub = n.subscribe("cinempc/sequence", 1000, changeSeqCallback);
+
   double frequency = 400 * sim_frequency;
   ros::Rate loop_rate(frequency);
-  double current_speed_x = 0, current_speed_y = 0, current_speed_z = 0;
-  double current_pitch = 0, current_yaw = 0;
-  double steps_velocity = 0.000004;
-  double max_vel = 0.025;
 
-  double steps_z = 0.000005;
-  double steps_rot = 0.00025;
+  double current_speed_x = 0, current_speed_y = 0, current_speed_z = 0;
+
+  double current_pitch = 0, current_yaw = 0;
+
+  double steps_velocity = 0;
+  double max_vel = 0;
+
   while (ros::ok())
   {
 	if (sequence == 1)
@@ -66,69 +67,11 @@ int main(int argc, char **argv)
 	  }
 	}
 
-	// set for every problem
+	move_target_x_per_step.at(0) = current_speed_x;	 
+	move_target_y_per_step.at(0) = current_speed_y;	
+	move_target_z_per_step.at(0) = current_speed_z;	
 
-	else if (sequence == 2)
-	{
-	  if (current_speed_z > -0.005)
-	  {
-		current_speed_z -= steps_z;
-	  }
-
-	  if (current_pitch < 0.2)
-	  {
-		current_pitch += steps_rot;
-	  }
-	}
-	else if (sequence == 2.5)
-	{
-	  if (current_speed_z < 0)
-	  {
-		current_speed_z += steps_z;
-	  }
-
-	  if (current_pitch > 0)
-	  {
-		current_pitch -= steps_rot;
-	  }
-	}
-	else if (sequence == 3)
-	{
-	  {
-		if (current_speed_x < max_vel)
-		{
-		  current_speed_x += steps_velocity;
-		}
-
-		if (current_speed_y < 0)
-		{
-		  current_speed_y += steps_velocity;
-		}
-		if (current_yaw < PI / 2)
-		{
-		  current_yaw += steps_rot;
-		}
-
-		if (current_pitch > 0)
-		{
-		  current_pitch -= steps_rot;
-		}
-		if (current_speed_z < 0)
-		{
-		  current_speed_z += steps_z;
-		}
-	  }
-	}
-	else if (sequence == 4)
-	{
-	  {
-	  }
-	}
-	move_target_x_per_step.at(0) = current_speed_x;	 // 0.005;	 // - camera_adjustement;
-	move_target_y_per_step.at(0) = current_speed_y;	 // 0.015;
-	move_target_z_per_step.at(0) = current_speed_z;	 //-0.005;
-
-	for (int i = 0; i < 1; i++)
+	for (int i = 0; i < targets_names.size(); i++)
 	{
 	  initial_state_target_vector.at(i).pose.position.x =
 		  initial_state_target_vector.at(i).pose.position.x + move_target_x_per_step.at(i);
@@ -155,9 +98,6 @@ int main(int argc, char **argv)
 		speed_target_pub.at(i).publish(velocity_target);
 	  }
 	}
-	// std::cout << "  x: " << calculateSpeed(current_speed_x, frequency)
-	// 		  << "  y: " << calculateSpeed(current_speed_y, frequency)
-	// 		  << "  z: " << calculateSpeed(current_speed_z, frequency) << std::endl;
 	ros::spinOnce();
 
 	loop_rate.sleep();

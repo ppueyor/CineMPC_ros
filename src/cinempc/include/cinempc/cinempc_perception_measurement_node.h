@@ -14,5 +14,8 @@
 #include "opencv4/opencv2/opencv.hpp"
 #include "ros/ros.h"
 
+using namespace cv;
+using namespace std;
+
 DarkHelp::NN darkhelp;
 ros::Publisher perception_result_publisher;

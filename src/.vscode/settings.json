@@ -7,6 +7,10 @@
         "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/devel/lib/python3/dist-packages",
         "/opt/ros/noetic/lib/python3/dist-packages"
     ],
+    "workbench.colorCustomizations": {
+        "editorUnnecessaryCode.border": "#dd7aab"
+    },
+    "editor.showUnused": true,
     "files.associations": {
         "cctype": "cpp",
         "clocale": "cpp",
@@ -79,6 +83,7 @@
         "variant": "cpp",
         "bit": "cpp",
         "*.ipp": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "geometry": "cpp"
     }
 }

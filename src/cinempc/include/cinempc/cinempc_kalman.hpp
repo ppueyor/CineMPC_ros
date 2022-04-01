@@ -1,13 +1,3 @@
-/**
- * Kalman filter implementation using Eigen. Based on the following
- * introductory paper:
- *
- *     http://www.cs.unc.edu/~welch/media/pdf/kalman_intro.pdf
- *
- * @author: Hayk Martirosyan
- * @date: 2014.11.15
- */
-
 #include <stdio.h>
 
 #include <eigen3/Eigen/Dense>

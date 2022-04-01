@@ -1,30 +1,17 @@
 #include "cinempc/cinempc_low_level_node.h"
 
 using namespace std;
-using namespace std::chrono;
 
-cinempc::PlotValues plot_values;
-
-float vel_x, vel_y, vel_z;
 float focal_length = 35, focus_distance = 10000, aperture = 22;
-
 int index_splines = -1;
-bool noise = true;
-float sequence = 1;
 double interval = mpc_dt / steps_each_dt_low_level;
 double freq_loop = 1 / interval;
 bool stop = false, low_cost = false;
-
+int a = 0;
 double yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
-
-ros::Time start_log;
-ros::Time start_measure;
-
-std::stringstream logErrorFileName;
 
 std::vector<float> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
     pitch_vector;
-std::vector<float> focal_length_interpolated;
 
 float interpolate(vector<float>& xData, vector<float>& yData, float x, bool extrapolate)
 {
@@ -66,6 +53,7 @@ std::vector<double> convertFloatToDoubleVector(std::vector<float> float_vector)
   std::vector<double> double_vec(float_vector.begin(), float_vector.end());
   return double_vec;
 }
+
 void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
 {
   index_splines = -1;
@@ -85,12 +73,6 @@ void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
 
   yaw_vector = msg->yaw_vector;
   yaw_vector.at(0) = yaw_gimbal;
-
-  // std::cout << endl << endl;
-  // for (double y : yaw_vector)
-  // {
-  //   std::cout << y << endl;
-  // }
 
   double distance = cinempc::calculateDistanceTo3DPoint<double>(
       msg->move_on_path_msg.positions.at(0).x, msg->move_on_path_msg.positions.at(0).y,
@@ -130,11 +112,9 @@ int main(int argc, char** argv)
 
   // init camera pose
   airsim_ros_pkgs::GimbalAngleQuatCmd msg;
-  geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, 0, drone_start_yaw);
+  geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, 0, drone_start_yaw);
   msg.orientation = q;
   gimbal_rotation_publisher.publish(msg);
-
-  double yaw_step = 0, pitch_step = 0, focal_step = 0, focus_step = 0, ap_step;
 
   ros::Rate loop_rate(freq_loop * sim_frequency);
   while (ros::ok() && !stop)
@@ -147,7 +127,7 @@ int main(int argc, char** argv)
       yaw_gimbal = interpolate(times_vector, yaw_vector, interval * index_splines, true);
       pitch_gimbal = interpolate(times_vector, pitch_vector, interval * index_splines, true);
 
-      geometry_msgs::Quaternion q = cinempc::RPYToQuat<double>(0, pitch_gimbal, yaw_gimbal);
+      geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, pitch_gimbal, yaw_gimbal);
 
       airsim_ros_pkgs::GimbalAngleQuatCmd msg;
       msg.orientation = q;
