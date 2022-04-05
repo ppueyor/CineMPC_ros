@@ -6,6 +6,8 @@
 #include <eigen3/Eigen/Geometry>
 #include <eigen3/Eigen/QR>
 
+#include "std_msgs/Bool.h"
+
 namespace cinempc
 {
 template <typename T>

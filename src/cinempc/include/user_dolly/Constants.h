@@ -4,8 +4,8 @@
 const double PI = 3.14159265358979323846;  //(mm)
 
 const bool static_target = true, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true,
-           dynamic_scene = false, publish_topics_gt = true, floor_constraints = true, take_off_when_start = false,
-           save_imgs = true;
+           dynamic_scene = false, publish_topics_gt = true, floor_constraints = true, take_off_when_start = true,
+           save_imgs = true, add_noise = true;
 
 // simulation and MPC variables
 const double sim_speed = 1;
@@ -75,9 +75,11 @@ const double tolerance_pixel_y = 2;
 const double tolerance_reduce_weight = 0.01;
 
 // Definition of sequences
-const int start_sequence_1 = 0;
-const int start_sequence_2_5 = 23;
-const int start_sequence_3 = 30;
+const int start_sequence_1 = 5;
+const int start_sequence_2_5 = 28;
+const int start_sequence_3 = 35;
+const int start_sequence_4 = 97;
+const int final_sequence = 4;
 
 // Definition of folders
 const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/";

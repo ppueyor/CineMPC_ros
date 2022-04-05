@@ -3,16 +3,15 @@
 using namespace std;
 using namespace std::chrono;
 
-// Current position of drone
-std::vector<cinempc::TargetState> world_targets_states_perception, world_targets_states_gt;
-
 cinempc::PlotValues plot_values;
 
 float vel_x, vel_y, vel_z;
 float focal_length = 35, focus_distance = 10000, aperture = 22;
 
+int experiments = 7;
+
 bool noise = true;
-float sequence = 1;
+float sequence = 0;
 bool stop = false, low_cost = false;
 
 double yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
@@ -67,16 +66,6 @@ double generateNoise(double mean, double st_dev)
   else
   {
     return 0;
-  }
-}
-
-void initializeTargets()
-{
-  for (int i = 0; i < targets_names.size(); i++)
-  {
-    cinempc::TargetState state;
-    world_targets_states_perception.push_back(state);
-    world_targets_states_gt.push_back(state);
   }
 }
 
@@ -232,11 +221,67 @@ void readTargetStatePerceptionCallback(const cinempc::MeasurementOut::ConstPtr& 
   start_measure = ros::Time::now();
 }
 
+void restartSimulation()
+{
+  experiments++;
+
+  if (experiments < 11)
+  {
+    logFile.close();
+
+    auto const now = std::chrono::system_clock::now();
+    auto const in_time_t = std::chrono::system_clock::to_time_t(now);
+    logErrorFileName.str("");
+
+    logErrorFileName << project_folder << "logs/" << targets_names.at(0) << "/log" << experiments << ".csv";
+    logFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stampm
+
+    logFile << cinempc::plot_values(plot_values, true);
+
+    start_log = ros::Time::now();
+    start_measure = ros::Time::now();
+
+    cinempc_calculate_new_states_timer_.stop();
+    cinempc_calculate_new_states_timer_.start();
+
+    // init camera pose
+    airsim_ros_pkgs::GimbalAngleQuatCmd msg;
+    geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, 0, drone_start_yaw);
+    msg.orientation = q;
+    drone_pose.orientation = q;
+    drone_pose_next_state.orientation = q;
+    drone_pose_next_state = drone_pose;
+
+    geometry_msgs::Pose initial_drone_pose;
+    geometry_msgs::Point initial_point;
+
+    initial_point.x = std::rand() % 3 - 3;
+    initial_point.y = std::rand() % 10 - 7;
+
+    initial_drone_pose.position = initial_point;
+    initial_drone_pose.orientation = cinempc::RPY_to_quat<double>(0, 0, drone_start_yaw);
+
+    std::cout << initial_drone_pose.position.x << endl;
+    set_vehicle_pose_publisher.publish(initial_drone_pose);
+    drone_pose.position = initial_point;
+
+    // init drone pose
+    sequence = 0;
+    focal_length = 35, focus_distance = 10000, aperture = 22;
+  }
+}
+
 void changeSeqCallback(const std_msgs::Float32::ConstPtr& msg)
 {
   sequence = msg->data;
   std::cout << "Sequence:" << sequence << std::endl;
   plot_values.sequence = sequence;
+  if (sequence == final_sequence)
+  {
+    std_msgs::Bool bool1;
+    restart_simulation_publisher.publish(bool1);
+    restartSimulation();
+  }
 }
 
 void stopReceivedCallback(const std_msgs::Bool& msg)
@@ -277,83 +322,91 @@ void depthReceivedCallback(const sensor_msgs::Image& msg)
 
 void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 {
-  drone_pose_when_called = drone_pose;
-
-  cinempc::MPCIncomingState msg_mpc_in;
-  msg_mpc_in.drone_state.drone_pose.position.x = 0;
-  msg_mpc_in.drone_state.drone_pose.position.y = 0;
-  msg_mpc_in.drone_state.drone_pose.position.z = 0;
-
-  msg_mpc_in.drone_state.velocity.x = vel_x;
-  msg_mpc_in.drone_state.velocity.y = vel_y;
-  msg_mpc_in.drone_state.velocity.z = vel_z;
-
-  geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, 0, 0);
-  msg_mpc_in.drone_state.drone_pose.orientation = q;
-  msg_mpc_in.floor_pos = -drone_pose.position.z;
-  msg_mpc_in.drone_state.intrinsics = cinempc::getInstrinscsMsg<float>(focal_length, focus_distance, aperture);
-
-  for (int target = 0; target < targets_names.size(); target++)
+  if (sequence != 0)
   {
-    cinempc::TargetStateMPC target_state_mpc;
-    for (int j = 0; j < MPC_N; j++)
-    {
-      geometry_msgs::Pose pose;
-      target_state_mpc.poses_top.push_back(pose);
-      target_state_mpc.poses_center.push_back(pose);
-      target_state_mpc.poses_bottom.push_back(pose);
-    }
-    msg_mpc_in.targets.push_back(target_state_mpc);
-  }
-  std::vector<geometry_msgs::Quaternion> world_rotations;
+    drone_pose_when_called = drone_pose;
 
-  for (int target = 0; target < targets_names.size(); target++)
-  {
-    ros::ServiceClient service_get_N_poses = n.serviceClient<cinempc::GetNNextTargetPoses>("/cinempc/"
-                                                                                           "get_n_target_poses");
+    cinempc::MPCIncomingState msg_mpc_in;
+    msg_mpc_in.drone_state.drone_pose.position.x = 0;
+    msg_mpc_in.drone_state.drone_pose.position.y = 0;
+    msg_mpc_in.drone_state.drone_pose.position.z = 0;
 
-    cinempc::GetNNextTargetPoses srv_get_poses;
-    srv_get_poses.request.target_index = target;
-    srv_get_poses.request.mpc_dt = mpc_dt;
-    srv_get_poses.request.mpc_N = MPC_N;
-    if (service_get_N_poses.call(srv_get_poses))
+    msg_mpc_in.drone_state.velocity.x = vel_x;
+    msg_mpc_in.drone_state.velocity.y = vel_y;
+    msg_mpc_in.drone_state.velocity.z = vel_z;
+
+    geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, 0, 0);
+    msg_mpc_in.drone_state.drone_pose.orientation = q;
+    msg_mpc_in.floor_pos = -drone_pose.position.z;
+    msg_mpc_in.drone_state.intrinsics = cinempc::getInstrinscsMsg<float>(focal_length, focus_distance, aperture);
+
+    for (int target = 0; target < targets_names.size(); target++)
     {
-      std::vector<geometry_msgs::Pose> world_top_poses = srv_get_poses.response.poses_target;
-      world_rotations.push_back(world_top_poses.at(0).orientation);
-      for (int t = 0; t < MPC_N; t++)
+      cinempc::TargetStateMPC target_state_mpc;
+      for (int j = 0; j < MPC_N; j++)
       {
-        geometry_msgs::Pose world_pose_top_kf = world_top_poses.at(t);
-        if (t == 0)
+        geometry_msgs::Pose pose;
+        target_state_mpc.poses_top.push_back(pose);
+        target_state_mpc.poses_center.push_back(pose);
+        target_state_mpc.poses_bottom.push_back(pose);
+      }
+      msg_mpc_in.targets.push_back(target_state_mpc);
+    }
+    std::vector<geometry_msgs::Quaternion> world_rotations;
+
+    for (int target = 0; target < targets_names.size(); target++)
+    {
+      ros::ServiceClient service_get_N_poses = n.serviceClient<cinempc::GetNNextTargetPoses>("/cinempc/"
+                                                                                             "get_n_target_poses");
+
+      cinempc::GetNNextTargetPoses srv_get_poses;
+      srv_get_poses.request.target_index = target;
+      srv_get_poses.request.mpc_dt = mpc_dt;
+      srv_get_poses.request.mpc_N = MPC_N;
+      if (service_get_N_poses.call(srv_get_poses))
+      {
+        std::vector<geometry_msgs::Pose> world_top_poses = srv_get_poses.response.poses_target;
+        world_rotations.push_back(world_top_poses.at(0).orientation);
+        for (int t = 0; t < MPC_N; t++)
         {
-          plot_values.target_world_kf = world_pose_top_kf.position;
-          plot_values.v_target_kf = srv_get_poses.response.velocity_target_kf;
+          geometry_msgs::Pose world_pose_top_kf = world_top_poses.at(t);
+          if (t == 0)
+          {
+            plot_values.target_world_kf = world_pose_top_kf.position;
+            plot_values.v_target_kf = srv_get_poses.response.velocity_target_kf;
+          }
+
+          plot_values.target_rot_gt = cinempc::RPY_to_quat<double>(0, 0, target_1_yaw_gt);
+          plot_values.target_rot_perception = world_pose_top_kf.orientation;
+
+          cinempc::TargetState target_state =
+              fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_when_called);
+
+          msg_mpc_in.targets.at(target).poses_top.at(t) = target_state.pose_top;
+          msg_mpc_in.targets.at(target).poses_center.at(t) = target_state.pose_center;
+          msg_mpc_in.targets.at(target).poses_bottom.at(t) = target_state.pose_bottom;
         }
-
-        plot_values.target_rot_gt = cinempc::RPY_to_quat<double>(0, 0, target_1_yaw_gt);
-        plot_values.target_rot_perception = world_pose_top_kf.orientation;
-
-        cinempc::TargetState target_state = fulfillRelativePosesFromWorldTop(world_pose_top_kf, drone_pose_when_called);
-
-        msg_mpc_in.targets.at(target).poses_top.at(t) = target_state.pose_top;
-        msg_mpc_in.targets.at(target).poses_center.at(t) = target_state.pose_center;
-        msg_mpc_in.targets.at(target).poses_bottom.at(t) = target_state.pose_bottom;
       }
     }
-  }
-  ros::ServiceClient service_get_user_constraints = n.serviceClient<cinempc::GetUserConstraints>("/cinempc/"
-                                                                                                 "user_node/"
-                                                                                                 "get_"
-                                                                                                 "constraints");
-  cinempc::GetUserConstraints srv;
-  srv.request.targets_relative = msg_mpc_in.targets;
-  srv.request.world_rotations_target = world_rotations;
-  srv.request.drone_pose = drone_pose_when_called;
-  srv.request.sequence = sequence;
-  if (service_get_user_constraints.call(srv))
-  {
-    msg_mpc_in.constraints = srv.response.contraints;
-    new_MPC_state_publisher.publish(msg_mpc_in);
-    plot_values.constraints = srv.response.contraints;
+    ros::ServiceClient service_get_user_constraints = n.serviceClient<cinempc::GetUserConstraints>("/cinempc/"
+                                                                                                   "user_node/"
+                                                                                                   "get_"
+                                                                                                   "constraints");
+    cinempc::GetUserConstraints srv;
+    srv.request.targets_relative = msg_mpc_in.targets;
+    srv.request.world_rotations_target = world_rotations;
+    srv.request.drone_pose = drone_pose_when_called;
+    srv.request.sequence = sequence;
+    if (service_get_user_constraints.call(srv))
+    {
+      msg_mpc_in.constraints = srv.response.contraints;
+      new_MPC_state_publisher.publish(msg_mpc_in);
+      plot_values.constraints = srv.response.contraints;
+    }
+    if (sequence != 0)
+    {
+      logFile << cinempc::plot_values(plot_values, false);
+    }
   }
 }
 
@@ -376,10 +429,6 @@ void mpcResultCallback(const cinempc::MPCResult::ConstPtr& msg)
   plot_values.time_ms = diff.toNSec() / (1000000 * sim_speed);
   plot_values.mpc_plot_values = msg->plot_values;
 
-  if (msg->cost > 0)
-  {
-    logFile << cinempc::plot_values(plot_values, false);
-  }
   if (msg->cost >= 100 || msg->cost == 0)
   {
     low_cost = false;
@@ -470,12 +519,10 @@ int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cinempc_main");
 
-  initializeTargets();
-
   auto const now = std::chrono::system_clock::now();
   auto const in_time_t = std::chrono::system_clock::to_time_t(now);
-  logErrorFileName << project_folder << "logs/" << targets_names.at(0) << "/error_pos_"
-                   << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << ".csv";
+
+  logErrorFileName << project_folder << "logs/" << targets_names.at(0) << "/log7.csv";
   logFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
 
   logFile << cinempc::plot_values(plot_values, true);
@@ -501,10 +548,18 @@ int main(int argc, char** argv)
   std::vector<ros::Subscriber> targets_states_subscribers_gt = {}, target_velocities_subscribers_gt = {};
   ros::Subscriber targets_states_subscriber_perception;
 
+  set_vehicle_pose_publisher = n.advertise<geometry_msgs::Pose>("/airsim_node/drone_1/set_vehicle_pose", 10);
+
+  restart_simulation_publisher = n.advertise<std_msgs::Bool>("/cinempc/restart_simulation", 10);
   perception_meas_publisher = n.advertise<cinempc::MeasurementIn>("/cinempc/perception_measurement_in", 10);
   low_level_control_publisher = n.advertise<cinempc::LowLevelControl>("/cinempc/low_level_control", 1000);
   estimation_in_publisher = n.advertise<cinempc::EstimationIn>("cinempc/estimation_in", 10);
   new_MPC_state_publisher = n.advertise<cinempc::MPCIncomingState>("cinempc/current_state", 10);
+
+  service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
+  airsim_ros_pkgs::Takeoff srv;
+  srv.request.waitOnLastTask = false;
+  // service_take_off.call(srv);
 
   if (use_perception)
   {
@@ -531,9 +586,8 @@ int main(int argc, char** argv)
   drone_pose_next_state.orientation = q;
   drone_pose_next_state = drone_pose;
 
-  double yaw_step = 0, pitch_step = 0, focal_step = 0, ap_step;
-
   ros::Rate loop_rate(100);
+  bool called = false;
   while (ros::ok() && !stop)
   {
     loop_rate.sleep();

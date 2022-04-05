@@ -12,7 +12,14 @@
 double desired_far = 0;
 bool far_ascending = true;
 double desired_focal = 35;
-double weight_far = 0;
+
+void restartSimulation(const std_msgs::Bool bool1)
+{
+  desired_far = 0;
+  far_ascending = true;
+  desired_focal = 35;
+}
+
 bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserConstraints::Response &res)
 {
   cinempc::Constraints c;
@@ -48,6 +55,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
   }
 
   int sequence = req.sequence;
+
   if (sequence == 1)
   {
     c.dn_star =
@@ -126,7 +134,7 @@ bool getConstraints(cinempc::GetUserConstraints::Request &req, cinempc::GetUserC
     c.focal_star = desired_focal;
     c.weights.w_focal = 0.75;
   }
-  else if (sequence == 3)
+  else if (sequence == 3 || sequence == 4)
   {
     c.dn_star =
         abs(cinempc::calculateDistanceTo2DPoint<double>(req.targets_relative.at(0).poses_top.at(0).position.x,
@@ -199,6 +207,9 @@ int main(int argc, char **argv)
           "user_node/"
           "get_constraints",
           boost::bind(&getConstraints, _1, _2));
+
+  ros::Subscriber restart_simulation =
+      n.subscribe<std_msgs::Bool>("cinempc/restart_simulation", 1000, restartSimulation);
   ros::spin();
 
   return 0;

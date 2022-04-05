@@ -3,6 +3,7 @@
 ros::Time start_log;
 int images_received = 0;
 std::stringstream folder_name, name_depth, name_rgb, name_perception;
+static std::default_random_engine generator;
 
 // calculates an average depth from the square sourronding by width/heigth/3 the center of the bounding box
 float calculateAverageDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
@@ -41,6 +42,22 @@ float calculateAverageDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_bo
   return avg_depth * 100000;
 }
 
+double generate_noise(double mean, double st_dev)
+{
+  std::normal_distribution<double> distribution(mean, st_dev);
+  double gaussian_noise = distribution(generator);
+
+  // cout << "noise" << ": " << gaussian_noise << endl;
+  if (add_noise)
+  {
+    return gaussian_noise;
+  }
+  else
+  {
+    return 0;
+  }
+}
+
 // calculates a median depth the closest pixels of every row
 float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box)
 {
@@ -50,7 +67,8 @@ float calculateMedianDepth(cv_bridge::CvImagePtr depth_cv_ptr, Rect bounding_box
     float closest_depth_row = depth_cv_ptr->image.at<float>(0, 0);
     for (int u = bounding_box.x; u < bounding_box.x + bounding_box.width; u++)
     {
-      float current_depth = depth_cv_ptr->image.at<float>(v, u);
+      // add noise to current depth
+      float current_depth = depth_cv_ptr->image.at<float>(v, u) + generate_noise(0, 0.0000004);
       if (current_depth < closest_depth_row)
       {
         closest_depth_row = current_depth;
@@ -156,6 +174,17 @@ void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
   perception_result_publisher.publish(perception_out_msg);
 }
 
+void restartSimulation(const std_msgs::Bool bool1)
+{
+  start_log = ros::Time::now();
+  auto const now = std::chrono::system_clock::now();
+  auto const in_time_t = std::chrono::system_clock::to_time_t(now);
+  folder_name.str("");
+  folder_name << project_folder << "images/" << targets_names.at(0) << "/"
+              << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << "/";
+  common_utils::FileSystem::createDirectory(folder_name.str());
+}
+
 int main(int argc, char** argv)
 {
   if (use_perception)
@@ -180,6 +209,9 @@ int main(int argc, char** argv)
     common_utils::FileSystem::createDirectory(folder_name.str());
     ros::Subscriber image_received_sub =
         n.subscribe("/cinempc/perception_measurement_in", 1000, newImageReceivedCallback);
+
+    ros::Subscriber restart_simulation =
+        n.subscribe<std_msgs::Bool>("cinempc/restart_simulation", 1000, restartSimulation);
 
     perception_result_publisher = n.advertise<cinempc::MeasurementOut>("/cinempc/perception_measurement_out", 10);
 

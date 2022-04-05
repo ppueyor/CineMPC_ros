@@ -7,7 +7,6 @@ int index_splines = -1;
 double interval = mpc_dt / steps_each_dt_low_level;
 double freq_loop = 1 / interval;
 bool stop = false, low_cost = false;
-int a = 0;
 double yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
 
 std::vector<float> times_vector, focal_length_vector, focus_distance_vector, aperture_vector, roll_vector, yaw_vector,
@@ -54,6 +53,30 @@ std::vector<double> convertFloatToDoubleVector(std::vector<float> float_vector)
   return double_vec;
 }
 
+airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float focus_distance_in, float aperture_in)
+{
+  airsim_ros_pkgs::IntrinsicsCamera msg;
+  msg.focal_length = focal_length_in;
+  msg.focus_distance = focus_distance_in;
+  msg.aperture = aperture_in;
+  return msg;
+}
+
+void restartSimulation(const std_msgs::Bool bool1)
+{
+  focal_length = 35, focus_distance = 10000, aperture = 22;
+  index_splines = -1;
+  yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
+
+  geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, pitch_gimbal, yaw_gimbal);
+
+  airsim_ros_pkgs::GimbalAngleQuatCmd msg;
+  msg.orientation = q;
+
+  gimbal_rotation_publisher.publish(msg);
+  fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
+}
+
 void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
 {
   index_splines = -1;
@@ -87,15 +110,6 @@ void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)
   index_splines = 0;
 }
 
-airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float focus_distance_in, float aperture_in)
-{
-  airsim_ros_pkgs::IntrinsicsCamera msg;
-  msg.focal_length = focal_length_in;
-  msg.focus_distance = focus_distance_in;
-  msg.aperture = aperture_in;
-  return msg;
-}
-
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cinempc_low_level");
@@ -109,6 +123,9 @@ int main(int argc, char** argv)
 
   fpv_intrinsics_publisher = n.advertise<airsim_ros_pkgs::IntrinsicsCamera>("/airsim_node/drone_1/set_intrinsics", 10);
   move_on_path_publisher = n.advertise<airsim_ros_pkgs::MoveOnPath>("/airsim_node/drone_1/move_on_path", 10);
+
+  ros::Subscriber restart_simulation =
+      n.subscribe<std_msgs::Bool>("cinempc/restart_simulation", 1000, restartSimulation);
 
   // init camera pose
   airsim_ros_pkgs::GimbalAngleQuatCmd msg;

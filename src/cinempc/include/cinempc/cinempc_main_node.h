@@ -1,5 +1,6 @@
 #include <airsim_ros_pkgs/GimbalAngleQuatCmd.h>
 #include <airsim_ros_pkgs/IntrinsicsCamera.h>
+#include <airsim_ros_pkgs/Takeoff.h>
 #include <cinempc/CineMPCCommon.h>
 #include <cinempc/Constraints.h>
 #include <cinempc/EstimationIn.h>
@@ -26,12 +27,15 @@
 #include <vector>
 
 #include "ros/ros.h"
-
+ros::Publisher set_vehicle_pose_publisher;
 ros::Publisher perception_meas_publisher;
+ros::Publisher restart_simulation_publisher;
 ros::Publisher gimbal_rotation_publisher;
 ros::Publisher new_MPC_state_publisher;
 ros::Publisher low_level_control_publisher;
 ros::Publisher estimation_in_publisher;
+
+ros::ServiceClient service_take_off;
 
 ros::Timer cinempc_calculate_new_states_timer_;
 

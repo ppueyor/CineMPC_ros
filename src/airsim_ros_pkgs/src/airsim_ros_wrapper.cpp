@@ -194,6 +194,10 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
           curr_vehicle_name + "/vel_cmd_world_frame", 1,
           boost::bind(&AirsimROSWrapper::vel_cmd_world_frame_cb, this, _1, vehicle_ros->vehicle_name));
 
+      drone->cmd_set_vehicle_pose_sub = nh_private_.subscribe<geometry_msgs::Pose>(
+          curr_vehicle_name + "/set_vehicle_pose", 1,
+          boost::bind(&AirsimROSWrapper::set_vehicle_pose_cb, this, _1, vehicle_ros->vehicle_name));
+
       drone->move_on_path_sub = nh_private_.subscribe<airsim_ros_pkgs::MoveOnPath>(
           curr_vehicle_name + "/move_on_path", 1,
           boost::bind(&AirsimROSWrapper::move_on_path_cb, this, _1, vehicle_ros->vehicle_name));
@@ -202,6 +206,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
           nh_private_.advertiseService<airsim_ros_pkgs::Takeoff::Request, airsim_ros_pkgs::Takeoff::Response>(
               curr_vehicle_name + "/takeoff",
               boost::bind(&AirsimROSWrapper::takeoff_srv_cb, this, _1, _2, vehicle_ros->vehicle_name));
+
       drone->land_srvr = nh_private_.advertiseService<airsim_ros_pkgs::Land::Request, airsim_ros_pkgs::Land::Response>(
           curr_vehicle_name + "/land",
           boost::bind(&AirsimROSWrapper::land_srv_cb, this, _1, _2, vehicle_ros->vehicle_name));
@@ -567,9 +572,12 @@ bool AirsimROSWrapper::land_all_srv_cb(airsim_ros_pkgs::Land::Request& request,
 bool AirsimROSWrapper::reset_srv_cb(airsim_ros_pkgs::Reset::Request& request,
                                     airsim_ros_pkgs::Reset::Response& response)
 {
-  std::lock_guard<std::mutex> guard(drone_control_mutex_);
+  Vector3r vec4(0, 0, 0);
+  Quaternionr rotation(0, 0, 0, 0);
+  Pose p(vec4, rotation);
 
-  airsim_client_.reset();
+  std::lock_guard<std::mutex> guard(drone_control_mutex_);
+  airsim_client_->simSetVehiclePose(p, false, "");
   return true;  // todo
 }
 
@@ -772,6 +780,19 @@ void AirsimROSWrapper::set_intrinsics_cb(const airsim_ros_pkgs::IntrinsicsCamera
   airsim_client_->simSetFocusAperture(intrinsics_cmd_msg->aperture, camera_name, vehicle_name, false);
   airsim_client_->simSetFocusDistance(intrinsics_cmd_msg->focus_distance, camera_name, vehicle_name, false);
   airsim_client_->simSetFocalLength(intrinsics_cmd_msg->focal_length, camera_name, vehicle_name, false);
+}
+
+void AirsimROSWrapper::set_vehicle_pose_cb(const geometry_msgs::Pose::ConstPtr& vehicle_state_cmd_msg,
+                                           const std::string& vehicle_name)
+{
+  Vector3r vec4(vehicle_state_cmd_msg->position.x, vehicle_state_cmd_msg->position.y,
+                vehicle_state_cmd_msg->position.z);
+  Quaternionr rotation(vehicle_state_cmd_msg->orientation.w, vehicle_state_cmd_msg->orientation.x,
+                       vehicle_state_cmd_msg->orientation.y, vehicle_state_cmd_msg->orientation.z);
+  Pose p(vec4, rotation);
+  // airsim_client_.get()->reset();
+
+  static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->simSetVehiclePose(p, false, vehicle_name);
 }
 
 void AirsimROSWrapper::set_object_pose_cb(const geometry_msgs::Pose::ConstPtr& object_state_cmd_msg,

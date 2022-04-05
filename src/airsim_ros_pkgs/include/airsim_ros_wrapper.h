@@ -237,6 +237,7 @@ private:
 
     ros::Subscriber vel_cmd_body_frame_sub;
     ros::Subscriber vel_cmd_world_frame_sub;
+    ros::Subscriber cmd_set_vehicle_pose_sub;
     ros::Subscriber move_on_path_sub;
 
     ros::ServiceServer takeoff_srvr;
@@ -269,6 +270,8 @@ private:
                          const std::string &vehicle_name,
                          const std::string &camera_name);  //, const std::string& vehicle_name, const std::string&
                                                            // camera_name);
+
+  void set_vehicle_pose_cb(const geometry_msgs::Pose::ConstPtr &vehicle_state_cmd_msg, const std::string &vehicle_name);
 
   void move_on_path_cb(const airsim_ros_pkgs::MoveOnPath::ConstPtr &move_on_path_cmd_msg,
                        const std::string &vehicle_name);  //, const std::string& vehicle_name, const std::string&

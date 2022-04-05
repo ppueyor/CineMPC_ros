@@ -49,6 +49,21 @@ KalmanFilterEigen initializeKalmanFilterTarget()
   return init;
 }
 
+void initializeTargets()
+{
+  kalman_filter_targets.clear();
+  for (int i = 0; i < targets_names.size(); i++)
+  {
+    KalmanFilterEigen kf = initializeKalmanFilterTarget();
+    kalman_filter_targets.push_back(kf);
+  }
+}
+
+void restartSimulation(const std_msgs::Bool bool1)
+{
+  initializeTargets();
+}
+
 const Eigen::MatrixXd getNewAMatrix(double dt_kf)
 {
   int n = kf_states;        // Number of states
@@ -123,15 +138,6 @@ void updateKalmanWithNewMeasure(const cinempc::EstimationIn::ConstPtr& kf_in_msg
   }
 }
 
-void initializeTargets()
-{
-  for (int i = 0; i < targets_names.size(); i++)
-  {
-    KalmanFilterEigen kf = initializeKalmanFilterTarget();
-    kalman_filter_targets.push_back(kf);
-  }
-}
-
 int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cinempc_perception_estimation");
@@ -142,6 +148,9 @@ int main(int argc, char** argv)
 
   ros::Subscriber KF_subscriber =
       n.subscribe<cinempc::EstimationIn>("cinempc/estimation_in", 1000, updateKalmanWithNewMeasure);
+
+  ros::Subscriber restart_simulation =
+      n.subscribe<std_msgs::Bool>("cinempc/restart_simulation", 1000, restartSimulation);
 
   ros::ServiceServer service =
       n.advertiseService<cinempc::GetNNextTargetPoses::Request, cinempc::GetNNextTargetPoses::Response>(

@@ -81,8 +81,8 @@ public:
 	{
 	  AD<double> Jp = 0, Jim = 0, JDoF = 0, JFoc = 0;
 	  // J_DoF
-	  AD<double> hyperfocal_distance_mms =
-		  cinempc::calculate_hyperfocal_distance_DoF<AD<double>>(vars[focal_length_start + t], vars[aperture_start + t]);
+	  AD<double> hyperfocal_distance_mms = cinempc::calculate_hyperfocal_distance_DoF<AD<double>>(
+		  vars[focal_length_start + t], vars[aperture_start + t]);
 
 	  AD<double> near_acceptable_distance = cinempc::calculate_near_distance_DoF<AD<double>>(
 		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
@@ -266,7 +266,8 @@ public:
 					  << "--------- " << std::endl
 					  << "   d_target:  " << distance_2D_target << std::endl
 					  << "   d_target_desired:  " << constraints.targets_d_star.at(j) << std::endl
-					  << "   roll_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).roll << std::endl
+					  << "   roll_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).roll
+					  << std::endl
 					  << "   roll_target_desired:  "
 					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).roll << endl
 					  << "   yaw_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).yaw << std::endl
@@ -275,7 +276,8 @@ public:
 					  << "   pitch_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).pitch
 					  << std::endl
 					  << "   pitch_target_desired:  "
-					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).pitch << std::endl;
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).pitch
+					  << std::endl;
 
 			std::cout << "RELATIVE DISTANCE " << std::endl
 					  << "--------- " << std::endl
@@ -754,12 +756,22 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
   }
 }
 
+void restartSimulation(const std_msgs::Bool bool1)
+{
+  airsim_ros_pkgs::Takeoff srv;
+  srv.request.waitOnLastTask = false;
+  if (take_off_when_start)
+  {
+	service_take_off.call(srv);
+  }
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "cinempc_mpc");
   ros::NodeHandle n;
 
-  ros::ServiceClient service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
+  service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
   airsim_ros_pkgs::Takeoff srv;
   srv.request.waitOnLastTask = false;
 
@@ -767,6 +779,10 @@ int main(int argc, char **argv)
   {
 	service_take_off.call(srv);
   }
+
+  ros::Subscriber restart_simulation =
+	  n.subscribe<std_msgs::Bool>("cinempc/restart_simulation", 1000, restartSimulation);
+
   ros::Subscriber new_state_received_sub =
 	  n.subscribe<cinempc::MPCIncomingState>("cinempc/current_state", 1000, newStateReceivedCallback);
   results_pub = n.advertise<cinempc::MPCResult>("cinempc/next_n_states", 100);

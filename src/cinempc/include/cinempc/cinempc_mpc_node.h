@@ -24,6 +24,9 @@
 using namespace std;
 using CppAD::AD;
 using namespace Eigen;
+
+ros::ServiceClient service_take_off;
+
 class MPC
 {
 public:
