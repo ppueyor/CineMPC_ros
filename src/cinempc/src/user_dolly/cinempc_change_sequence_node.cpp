@@ -11,7 +11,7 @@ float current_sequence = 0, sequence = 0;
 void restartSimulation(const std_msgs::Bool bool1)
 {
   start_time = ros::Time::now();
-  current_sequence = 0, sequence = 0;
+  current_sequence = 0;
   std::cout << "received" << current_sequence << std::endl;
 }
 

@@ -8,11 +8,10 @@ cinempc::PlotValues plot_values;
 float vel_x, vel_y, vel_z;
 float focal_length = 35, focus_distance = 10000, aperture = 22;
 
-int experiments = 7;
+int experiments = initial_experiment;
 
-bool noise = true;
 float sequence = 0;
-bool stop = false, low_cost = false;
+bool stop = false, low_cost = false, first_log = true;
 
 double yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
 
@@ -51,22 +50,6 @@ void logPosition(geometry_msgs::Point pos, string name)
             << "--------- " << std::endl
             << "   x  " << pos.x << " y:   " << pos.y << " z: " << pos.z << "  Distance: " << distance_2D_target
             << std::endl;
-}
-
-double generateNoise(double mean, double st_dev)
-{
-  std::normal_distribution<double> distribution(mean, st_dev);
-  double gaussian_noise = distribution(generator);
-
-  // cout << "noise" << ": " << gaussian_noise << endl;
-  if (noise)
-  {
-    return gaussian_noise;
-  }
-  else
-  {
-    return 0;
-  }
 }
 
 void initializePerceptionMsg()
@@ -167,9 +150,7 @@ void readTargetStateCallback(const geometry_msgs::PoseStamped::ConstPtr& msg, in
 void readTargetVelocityCallback(const geometry_msgs::Point::ConstPtr& msg, int target_index)
 {
   plot_values.v_target_gt = *msg;
-
   orientation_target_gt = cinempc::predict_target_world_orientation_from_velocity<double>(msg->x, msg->y, msg->z);
-
   plot_values.target_rot_gt = orientation_target_gt;
 }
 
@@ -225,7 +206,7 @@ void restartSimulation()
 {
   experiments++;
 
-  if (experiments < 11)
+  if (experiments < number_of_experiments)
   {
     logFile.close();
 
@@ -252,11 +233,13 @@ void restartSimulation()
     drone_pose_next_state.orientation = q;
     drone_pose_next_state = drone_pose;
 
+    vel_x = 0, vel_y = 0, vel_z = 0;
+
     geometry_msgs::Pose initial_drone_pose;
     geometry_msgs::Point initial_point;
 
-    initial_point.x = std::rand() % 3 - 3;
-    initial_point.y = std::rand() % 10 - 7;
+    initial_point.x = std::rand() % 7 - 5;
+    initial_point.y = std::rand() % 2;
 
     initial_drone_pose.position = initial_point;
     initial_drone_pose.orientation = cinempc::RPY_to_quat<double>(0, 0, drone_start_yaw);
@@ -268,6 +251,8 @@ void restartSimulation()
     // init drone pose
     sequence = 0;
     focal_length = 35, focus_distance = 10000, aperture = 22;
+
+    first_log = true;
   }
 }
 
@@ -281,6 +266,21 @@ void changeSeqCallback(const std_msgs::Float32::ConstPtr& msg)
     std_msgs::Bool bool1;
     restart_simulation_publisher.publish(bool1);
     restartSimulation();
+  }
+  else if (sequence == 0.5)
+  {
+    geometry_msgs::Pose initial_drone_pose;
+    geometry_msgs::Point initial_point;
+
+    initial_point.x = std::rand() % 7 - 5;
+    initial_point.y = std::rand() % 2;
+
+    initial_drone_pose.position = initial_point;
+    initial_drone_pose.orientation = cinempc::RPY_to_quat<double>(0, 0, drone_start_yaw);
+
+    std::cout << initial_drone_pose.position.x << endl;
+    set_vehicle_pose_publisher.publish(initial_drone_pose);
+    drone_pose.position = initial_point;
   }
 }
 
@@ -322,7 +322,7 @@ void depthReceivedCallback(const sensor_msgs::Image& msg)
 
 void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
 {
-  if (sequence != 0)
+  if (sequence >= 1)
   {
     drone_pose_when_called = drone_pose;
 
@@ -376,7 +376,6 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
             plot_values.v_target_kf = srv_get_poses.response.velocity_target_kf;
           }
 
-          plot_values.target_rot_gt = cinempc::RPY_to_quat<double>(0, 0, target_1_yaw_gt);
           plot_values.target_rot_perception = world_pose_top_kf.orientation;
 
           cinempc::TargetState target_state =
@@ -403,9 +402,13 @@ void publishNewStateToMPC(const ros::TimerEvent& e, ros::NodeHandle n)
       new_MPC_state_publisher.publish(msg_mpc_in);
       plot_values.constraints = srv.response.contraints;
     }
-    if (sequence != 0)
+    if (!first_log)
     {
       logFile << cinempc::plot_values(plot_values, false);
+    }
+    else
+    {
+      first_log = false;
     }
   }
 }
@@ -522,7 +525,7 @@ int main(int argc, char** argv)
   auto const now = std::chrono::system_clock::now();
   auto const in_time_t = std::chrono::system_clock::to_time_t(now);
 
-  logErrorFileName << project_folder << "logs/" << targets_names.at(0) << "/log7.csv";
+  logErrorFileName << project_folder << "logs/" << targets_names.at(0) << "/log" << experiments << ".csv";
   logFile.open(logErrorFileName.str());  // pitch,roll,yaw for every time stamp
 
   logFile << cinempc::plot_values(plot_values, true);

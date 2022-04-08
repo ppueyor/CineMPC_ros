@@ -64,6 +64,14 @@ airsim_ros_pkgs::IntrinsicsCamera getInstrinscsMsg(float focal_length_in, float 
 
 void restartSimulation(const std_msgs::Bool bool1)
 {
+  times_vector.clear();
+  focal_length_vector.clear();
+  focus_distance_vector.clear();
+  aperture_vector.clear();
+  roll_vector.clear();
+  yaw_vector.clear();
+  pitch_vector.clear();
+
   focal_length = 35, focus_distance = 10000, aperture = 22;
   index_splines = -1;
   yaw_gimbal = drone_start_yaw, pitch_gimbal = 0;
@@ -75,6 +83,16 @@ void restartSimulation(const std_msgs::Bool bool1)
 
   gimbal_rotation_publisher.publish(msg);
   fpv_intrinsics_publisher.publish(getInstrinscsMsg(focal_length, focus_distance * 100, aperture));
+  std::vector<geometry_msgs::Point> pathMPC;
+  geometry_msgs::Point path_point;
+  pathMPC.push_back(path_point);
+  airsim_ros_pkgs::MoveOnPath msg_move_on_path;
+  msg_move_on_path.vel = 0;
+  msg_move_on_path.timeout = 10;
+  msg_move_on_path.rads_yaw = drone_start_yaw;
+  msg_move_on_path.positions = pathMPC;
+
+  move_on_path_publisher.publish(msg_move_on_path);
 }
 
 void lowLevelControlInCallback(const cinempc::LowLevelControl::ConstPtr& msg)

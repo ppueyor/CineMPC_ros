@@ -5,7 +5,7 @@ const double PI = 3.14159265358979323846;  //(mm)
 
 const bool static_target = false, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true,
            dynamic_scene = true, publish_topics_gt = true, floor_constraints = false, take_off_when_start = true,
-           save_imgs = true;
+           save_imgs = true, add_noise = false;
 
 // simulation and MPC variables
 const double sim_speed = 2;
@@ -32,8 +32,8 @@ const double image_y_center = picture_height_px / 2;
 std::vector<std::string> targets_names = { "Plane" };
 std::vector<std::string> targets_classes = { "aeroplane" };
 const bool is_person = false;
-const double target_x_yaw_gt = -PI / 2, target_x_pitch_gt = 0;
-const double target_x_height = 2, target_x_width = 4;
+const double target_1_yaw_gt = -PI / 2, target_1_pitch_gt = 0;
+const double target_1_height = 2, target_1_width = 4;
 
 // C-Set of constraints of the problem
 const double position = 40;
@@ -75,11 +75,17 @@ const double tolerance_pixel_y = 5;
 const double tolerance_reduce_weight = 1;
 
 // Definition of sequences
-const int start_sequence_1 = 0;
-const int start_sequence_2 = 25;
-const int start_sequence_2_5 = 43;
-const int start_sequence_3 = 58;
-const int start_sequence_4 = 88;
+const int start_sequence_0_5 = 5;
+const int start_sequence_1 = 10;
+const int start_sequence_2 = 35;
+const int start_sequence_2_5 = 53;
+const int start_sequence_3 = 68;
+const int start_sequence_4 = 98;
+const int start_sequence_5 = 135;
+const int final_sequence = 5;
+
+const int initial_experiment = 17;  // before was 5. starts in 30
+const int number_of_experiments = 25;
 
 // Definition of folders
 const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/";

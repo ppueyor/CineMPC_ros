@@ -98,6 +98,7 @@ bool predictNWorldTopPosesFromKF(cinempc::GetNNextTargetPoses::Request& req,
     target_vel.y = new_states(i, 4);
     target_vel.z = new_states(i, 5);
 
+    std::cout << target_vel.y << std::endl;
     if (i == 0)
     {
       res.velocity_target_kf = target_vel;
