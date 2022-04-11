@@ -75,11 +75,16 @@ const double tolerance_pixel_y = 2;
 const double tolerance_reduce_weight = 0.01;
 
 // Definition of sequences
-const int start_sequence_1 = 5;
-const int start_sequence_2_5 = 28;
-const int start_sequence_3 = 35;
-const int start_sequence_4 = 97;
+const int start_sequence_0_5 = 5;
+const int start_sequence_1 = 10;
+const int start_sequence_2_5 = 33;
+const int start_sequence_3 = 38;
+const int start_sequence_4 = 102;
 const int final_sequence = 4;
+
+// log files
+const int initial_experiment = 0;  // before was 5. starts in 30
+const int number_of_experiments = 10;
 
 // Definition of folders
 const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/";

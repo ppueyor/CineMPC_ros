@@ -111,7 +111,7 @@ void AirsimROSWrapper::initialize_ros()
   nh_private_.param("odom_frame_id", odom_frame_id_, odom_frame_id_);
   isENU_ = !(odom_frame_id_ == AIRSIM_ODOM_FRAME_ID);
   nh_private_.param("coordinate_system_enu", isENU_, isENU_);
-  nh_private_.param("targets_list", targets_list_, std::vector<string>());
+  nh_private_.param("targets_list", targets_list_, std::vector<std::string>());
 
   vel_cmd_duration_ = 0.05;  // todo rosparam
   // todo enforce dynamics constraints in this node as well?
@@ -443,7 +443,7 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
   }
 
   // targets state
-  for (const string target : targets_list_)
+  for (const std::string target : targets_list_)
   {
     std::unique_ptr<TargetROS> target_ros = nullptr;
     target_ros = std::unique_ptr<TargetROS>(new TargetROS());
@@ -572,9 +572,9 @@ bool AirsimROSWrapper::land_all_srv_cb(airsim_ros_pkgs::Land::Request& request,
 bool AirsimROSWrapper::reset_srv_cb(airsim_ros_pkgs::Reset::Request& request,
                                     airsim_ros_pkgs::Reset::Response& response)
 {
-  Vector3r vec4(0, 0, 0);
-  Quaternionr rotation(0, 0, 0, 0);
-  Pose p(vec4, rotation);
+  msr::airlib::Vector3r vec4(0, 0, 0);
+  msr::airlib::Quaternionr rotation(0, 0, 0, 0);
+  msr::airlib::Pose p(vec4, rotation);
 
   std::lock_guard<std::mutex> guard(drone_control_mutex_);
   airsim_client_->simSetVehiclePose(p, false, "");
@@ -680,15 +680,15 @@ void AirsimROSWrapper::move_on_path_cb(const airsim_ros_pkgs::MoveOnPath::ConstP
   tf2::Matrix3x3(get_tf2_quat(drone->curr_drone_state.kinematics_estimated.pose.orientation))
       .getRPY(roll, pitch, yaw);  // ros uses xyzw
 
-  std::vector<Vector3r> path;
+  std::vector<msr::airlib::Vector3r> path;
   for (const geometry_msgs::Point point : msg->positions)
   {
-    Vector3r vec(point.x, point.y, point.z);
+    msr::airlib::Vector3r vec(point.x, point.y, point.z);
     path.push_back(vec);
   }
   static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
-      ->moveOnPathAsync(path, msg->vel, msg->timeout, DrivetrainType::MaxDegreeOfFreedom,
-                        YawMode(false, 180 * msg->rads_yaw / M_PI), -1, 1, vehicle_name);
+      ->moveOnPathAsync(path, msg->vel, msg->timeout, msr::airlib::DrivetrainType::MaxDegreeOfFreedom,
+                        msr::airlib::YawMode(false, 180 * msg->rads_yaw / M_PI), -1, 1, vehicle_name);
 }
 
 // void AirsimROSWrapper::vel_cmd_all_body_frame_cb(const airsim_ros_pkgs::VelCmd::ConstPtr& msg)
@@ -775,7 +775,7 @@ void AirsimROSWrapper::vel_cmd_all_world_frame_cb(const airsim_ros_pkgs::VelCmd&
 void AirsimROSWrapper::set_intrinsics_cb(const airsim_ros_pkgs::IntrinsicsCamera::ConstPtr& intrinsics_cmd_msg,
                                          const std::string& vehicle_name, const std::string& camera_name)
 {
-  string info = camera_name + "  " + vehicle_name;
+  std::string info = camera_name + "  " + vehicle_name;
   airsim_ros_pkgs::IntrinsicsCamera intrinsics_msg;
   airsim_client_->simSetFocusAperture(intrinsics_cmd_msg->aperture, camera_name, vehicle_name, false);
   airsim_client_->simSetFocusDistance(intrinsics_cmd_msg->focus_distance, camera_name, vehicle_name, false);
@@ -785,11 +785,11 @@ void AirsimROSWrapper::set_intrinsics_cb(const airsim_ros_pkgs::IntrinsicsCamera
 void AirsimROSWrapper::set_vehicle_pose_cb(const geometry_msgs::Pose::ConstPtr& vehicle_state_cmd_msg,
                                            const std::string& vehicle_name)
 {
-  Vector3r vec4(vehicle_state_cmd_msg->position.x, vehicle_state_cmd_msg->position.y,
-                vehicle_state_cmd_msg->position.z);
-  Quaternionr rotation(vehicle_state_cmd_msg->orientation.w, vehicle_state_cmd_msg->orientation.x,
-                       vehicle_state_cmd_msg->orientation.y, vehicle_state_cmd_msg->orientation.z);
-  Pose p(vec4, rotation);
+  msr::airlib::Vector3r vec4(vehicle_state_cmd_msg->position.x, vehicle_state_cmd_msg->position.y,
+                             vehicle_state_cmd_msg->position.z);
+  msr::airlib::Quaternionr rotation(vehicle_state_cmd_msg->orientation.w, vehicle_state_cmd_msg->orientation.x,
+                                    vehicle_state_cmd_msg->orientation.y, vehicle_state_cmd_msg->orientation.z);
+  msr::airlib::Pose p(vec4, rotation);
   // airsim_client_.get()->reset();
 
   static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->simSetVehiclePose(p, false, vehicle_name);
@@ -798,10 +798,11 @@ void AirsimROSWrapper::set_vehicle_pose_cb(const geometry_msgs::Pose::ConstPtr& 
 void AirsimROSWrapper::set_object_pose_cb(const geometry_msgs::Pose::ConstPtr& object_state_cmd_msg,
                                           const std::string& target_name)
 {
-  Vector3r vec4(object_state_cmd_msg->position.x, object_state_cmd_msg->position.y, object_state_cmd_msg->position.z);
-  Quaternionr rotation(object_state_cmd_msg->orientation.w, object_state_cmd_msg->orientation.x,
-                       object_state_cmd_msg->orientation.y, object_state_cmd_msg->orientation.z);
-  Pose p(vec4, rotation);
+  msr::airlib::Vector3r vec4(object_state_cmd_msg->position.x, object_state_cmd_msg->position.y,
+                             object_state_cmd_msg->position.z);
+  msr::airlib::Quaternionr rotation(object_state_cmd_msg->orientation.w, object_state_cmd_msg->orientation.x,
+                                    object_state_cmd_msg->orientation.y, object_state_cmd_msg->orientation.z);
+  msr::airlib::Pose p(vec4, rotation);
 
   static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())->simSetObjectPose(target_name, p);
 }
@@ -983,7 +984,7 @@ sensor_msgs::PointCloud2 AirsimROSWrapper::get_lidar_msg_from_airsim(const msr::
     std::vector<float> data_std = lidar_data.point_cloud;
 
     const unsigned char* bytes = reinterpret_cast<const unsigned char*>(data_std.data());
-    vector<unsigned char> lidar_msg_data(bytes, bytes + sizeof(float) * data_std.size());
+    std::vector<unsigned char> lidar_msg_data(bytes, bytes + sizeof(float) * data_std.size());
     lidar_msg.data = std::move(lidar_msg_data);
   }
   else
@@ -1131,7 +1132,7 @@ void AirsimROSWrapper::publish_odom_tf(const nav_msgs::Odometry& odom_msg)
   tf_broadcaster_.sendTransform(odom_tf);
 }
 
-void AirsimROSWrapper::publish_target_tf(const geometry_msgs::PoseStamped& target_pose_msg, string name)
+void AirsimROSWrapper::publish_target_tf(const geometry_msgs::PoseStamped& target_pose_msg, std::string name)
 {
   geometry_msgs::TransformStamped target_tf;
   target_tf.header = target_pose_msg.header;
@@ -1419,8 +1420,8 @@ void AirsimROSWrapper::publish_target_state()
     auto& target_ros = target_name_ptr_pair.second;
 
     geometry_msgs::PoseStamped object_state_msg;
-    Pose p = static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
-                 ->simGetObjectPose(target_name_ptr_pair.first);
+    msr::airlib::Pose p = static_cast<msr::airlib::MultirotorRpcLibClient*>(airsim_client_.get())
+                              ->simGetObjectPose(target_name_ptr_pair.first);
 
     object_state_msg.header.frame_id = world_frame_id_;
     object_state_msg.header.stamp = ros::Time::now();

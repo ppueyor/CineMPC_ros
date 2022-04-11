@@ -48,6 +48,10 @@ int main(int argc, char **argv)
 	{
 	  current_sequence = 1;
 	}
+	else if (delayed_time.sec > start_sequence_0_5 * sim_speed)
+	{
+	  current_sequence = 0.5;
+	}
 	else
 	{
 	  current_sequence = 0;

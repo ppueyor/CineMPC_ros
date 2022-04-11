@@ -70,16 +70,7 @@ STRICT_MODE_OFF  // todo what does this do?
 #include "yaml-cpp/yaml.h"
     // #include "nodelet/nodelet.h"
 
-    // todo move airlib typedefs to separate header file?
-    typedef msr::airlib::ImageCaptureBase::ImageRequest ImageRequest;
-typedef msr::airlib::ImageCaptureBase::ImageResponse ImageResponse;
-typedef msr::airlib::ImageCaptureBase::ImageType ImageType;
-typedef msr::airlib::AirSimSettings::CaptureSetting CaptureSetting;
-typedef msr::airlib::AirSimSettings::VehicleSetting VehicleSetting;
-typedef msr::airlib::AirSimSettings::CameraSetting CameraSetting;
-typedef msr::airlib::AirSimSettings::LidarSetting LidarSetting;
-
-struct SimpleMatrix
+    struct SimpleMatrix
 {
   int rows;
   int cols;
@@ -131,6 +122,16 @@ struct GimbalCmd
 
 class AirsimROSWrapper
 {
+  using AirSimSettings = msr::airlib::AirSimSettings;
+  using SensorBase = msr::airlib::SensorBase;
+  using CameraSetting = msr::airlib::AirSimSettings::CameraSetting;
+  using CaptureSetting = msr::airlib::AirSimSettings::CaptureSetting;
+  using LidarSetting = msr::airlib::AirSimSettings::LidarSetting;
+  using VehicleSetting = msr::airlib::AirSimSettings::VehicleSetting;
+  using ImageRequest = msr::airlib::ImageCaptureBase::ImageRequest;
+  using ImageResponse = msr::airlib::ImageCaptureBase::ImageResponse;
+  using ImageType = msr::airlib::ImageCaptureBase::ImageType;
+
 public:
   enum class AIRSIM_MODE : unsigned
   {
@@ -315,7 +316,7 @@ private:
                          const std::string &child_frame_id);
   void publish_odom_tf(const nav_msgs::Odometry &odom_msg);
 
-  void publish_target_tf(const geometry_msgs::PoseStamped &pose_target_msg, string name);
+  void publish_target_tf(const geometry_msgs::PoseStamped &pose_target_msg, std::string name);
 
   /// camera helper methods
   sensor_msgs::CameraInfo generate_cam_info(const std::string &camera_name, const CameraSetting &camera_setting,
@@ -402,7 +403,7 @@ private:
   bool is_vulkan_;  // rosparam obtained from launch file. If vulkan is being used, we BGR encoding instead of RGB
 
   std::string host_ip_;
-  std::vector<string> targets_list_;
+  std::vector<std::string> targets_list_;
   std::unique_ptr<msr::airlib::RpcLibClientBase> airsim_client_ = nullptr;
   // seperate busy connections to airsim, update in their own thread
   msr::airlib::RpcLibClientBase airsim_client_images_;
