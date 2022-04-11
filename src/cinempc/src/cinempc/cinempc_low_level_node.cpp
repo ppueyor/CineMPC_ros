@@ -79,6 +79,8 @@ void restartSimulation(const std_msgs::Bool bool1)
   geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, pitch_gimbal, yaw_gimbal);
 
   airsim_ros_pkgs::GimbalAngleQuatCmd msg;
+  msg.vehicle_name = vehicle_name;
+  msg.camera_name = camera_name;
   msg.orientation = q;
 
   gimbal_rotation_publisher.publish(msg);
@@ -139,8 +141,10 @@ int main(int argc, char** argv)
   gimbal_rotation_publisher =
       n.advertise<airsim_ros_pkgs::GimbalAngleQuatCmd>("/airsim_node/gimbal_angle_quat_cmd", 10);
 
-  fpv_intrinsics_publisher = n.advertise<airsim_ros_pkgs::IntrinsicsCamera>("/airsim_node/drone_1/set_intrinsics", 10);
-  move_on_path_publisher = n.advertise<airsim_ros_pkgs::MoveOnPath>("/airsim_node/drone_1/move_on_path", 10);
+  fpv_intrinsics_publisher = n.advertise<airsim_ros_pkgs::IntrinsicsCamera>(
+      "/airsim_node/" + vehicle_name + "/" + camera_name + "/set_intrinsics", 10);
+  move_on_path_publisher =
+      n.advertise<airsim_ros_pkgs::MoveOnPath>("/airsim_node/" + vehicle_name + "/move_on_path", 10);
 
   ros::Subscriber restart_simulation =
       n.subscribe<std_msgs::Bool>("cinempc/restart_simulation", 1000, restartSimulation);
@@ -149,6 +153,8 @@ int main(int argc, char** argv)
   airsim_ros_pkgs::GimbalAngleQuatCmd msg;
   geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, 0, drone_start_yaw);
   msg.orientation = q;
+  msg.vehicle_name = vehicle_name;
+  msg.camera_name = camera_name;
   gimbal_rotation_publisher.publish(msg);
 
   ros::Rate loop_rate(freq_loop * sim_frequency);
@@ -165,6 +171,8 @@ int main(int argc, char** argv)
       geometry_msgs::Quaternion q = cinempc::RPY_to_quat<double>(0, pitch_gimbal, yaw_gimbal);
 
       airsim_ros_pkgs::GimbalAngleQuatCmd msg;
+      msg.vehicle_name = vehicle_name;
+      msg.camera_name = camera_name;
       msg.orientation = q;
 
       gimbal_rotation_publisher.publish(msg);

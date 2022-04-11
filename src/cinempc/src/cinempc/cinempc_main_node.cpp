@@ -536,22 +536,25 @@ int main(int argc, char** argv)
   start_measure = ros::Time::now();
 
   ros::Subscriber change_sequence_sub = n.subscribe("cinempc/sequence", 1000, changeSeqCallback);
-  ros::Subscriber new_drone_state_received_sub = n.subscribe("airsim_node/drone_1/"
-                                                             "odom_local_ned",
-                                                             1000, readDroneStateCallback);
+  ros::Subscriber new_drone_state_received_sub =
+      n.subscribe("airsim_node/" + vehicle_name + "/odom_local_ned", 1000, readDroneStateCallback);
   ros::Subscriber mpc_result_n_steps_sub = n.subscribe("cinempc/next_n_states", 1000, mpcResultCallback);
-  ros::Subscriber new_rgb_received_sub = n.subscribe("/airsim_node/drone_1/Scene", 1000, rgbReceivedCallback);
-  ros::Subscriber new_depth_received_sub = n.subscribe("/airsim_node/drone_1/DepthVis", 1000, depthReceivedCallback);
+  ros::Subscriber new_rgb_received_sub =
+      n.subscribe("/airsim_node/" + vehicle_name + "/" + camera_name + "/Scene", 1000, rgbReceivedCallback);
+  ros::Subscriber new_depth_received_sub =
+      n.subscribe("airsim_node/" + vehicle_name + "/" + camera_name + "/DepthVis", 1000, depthReceivedCallback);
   ros::Subscriber stop_signal_received_sub = n.subscribe("/cinempc/stop", 1000, stopReceivedCallback);
   ros::Subscriber fpv_intrinsics_subscriber = n.subscribe<airsim_ros_pkgs::IntrinsicsCamera>(
-      "/airsim_node/drone_1/set_intrinsics", 1000, boost::bind(&readIntrinsicsCallback, _1));
+      "/airsim_node/" + vehicle_name + "/" + camera_name + "/set_intrinsics", 1000,
+      boost::bind(&readIntrinsicsCallback, _1));
   ros::Subscriber gimbal_rotation_subscriber = n.subscribe<airsim_ros_pkgs::GimbalAngleQuatCmd>(
       "/airsim_node/gimbal_angle_quat_cmd", 1000, boost::bind(&readGimbalOrientationCallback, _1));
 
   std::vector<ros::Subscriber> targets_states_subscribers_gt = {}, target_velocities_subscribers_gt = {};
   ros::Subscriber targets_states_subscriber_perception;
 
-  set_vehicle_pose_publisher = n.advertise<geometry_msgs::Pose>("/airsim_node/drone_1/set_vehicle_pose", 10);
+  set_vehicle_pose_publisher =
+      n.advertise<geometry_msgs::Pose>("/airsim_node/" + vehicle_name + "/set_vehicle_pose", 10);
 
   restart_simulation_publisher = n.advertise<std_msgs::Bool>("/cinempc/restart_simulation", 10);
   perception_meas_publisher = n.advertise<cinempc::MeasurementIn>("/cinempc/perception_measurement_in", 10);
@@ -559,7 +562,7 @@ int main(int argc, char** argv)
   estimation_in_publisher = n.advertise<cinempc::EstimationIn>("cinempc/estimation_in", 10);
   new_MPC_state_publisher = n.advertise<cinempc::MPCIncomingState>("cinempc/current_state", 10);
 
-  service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/drone_1/takeoff");
+  service_take_off = n.serviceClient<airsim_ros_pkgs::Takeoff>("/airsim_node/" + vehicle_name + "/takeoff");
   airsim_ros_pkgs::Takeoff srv;
   srv.request.waitOnLastTask = false;
   // service_take_off.call(srv);

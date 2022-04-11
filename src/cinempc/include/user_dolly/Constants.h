@@ -86,6 +86,10 @@ const int final_sequence = 4;
 const int initial_experiment = 0;  // before was 5. starts in 30
 const int number_of_experiments = 10;
 
+// AirSim setup. Must match with Settings.json
+const std::string vehicle_name = "drone_1";
+const std::string camera_name = "fpv";
+
 // Definition of folders
 const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/";
 const std::string config_file_yolo = "/home/pablo/Downloads/darknet/cfg/yolov4.cfg";

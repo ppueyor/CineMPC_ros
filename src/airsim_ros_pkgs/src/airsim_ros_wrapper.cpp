@@ -226,12 +226,6 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
     // CinemAirSim
     vehicle_ros->intrinsics_pub_vec.clear();
     vehicle_ros->enable_manual_focus_srv_vec.clear();
-    IntrinsicsPublisher camera_publisher;
-    camera_publisher.camera_name = "";
-    camera_publisher.publisher =
-        nh_private_.advertise<airsim_ros_pkgs::IntrinsicsCamera>(curr_vehicle_name + "/" + "" + "/get_intrinsics", 10);
-
-    vehicle_ros->intrinsics_pub_vec.push_back(camera_publisher);
 
     for (auto& curr_camera_elem : vehicle_setting->cameras)
     {
@@ -266,8 +260,10 @@ void AirsimROSWrapper::create_ros_pubs_from_settings_json()
                           curr_camera_name)));
 
       // iterate over capture_setting std::map<int, CaptureSetting> capture_settings
+      // std::cout << camera_setting.capture_settings.at(0).height << std::endl;
       for (const auto& curr_capture_elem : camera_setting.capture_settings)
       {
+        std::cout << curr_capture_elem.first << std::endl;
         auto& capture_setting = curr_capture_elem.second;
 
         // todo why does AirSimSettings::loadCaptureSettings calls AirSimSettings::initializeCaptureSettings()
@@ -1477,7 +1473,7 @@ void AirsimROSWrapper::update_commands()
   if (has_gimbal_cmd_)
   {
     std::lock_guard<std::mutex> guard(drone_control_mutex_);
-    airsim_client_->simSetCameraPose(gimbal_cmd_.camera_name, get_airlib_pose(0, 0, 0, gimbal_cmd_.target_quat),
+    airsim_client_->simSetCameraPose(gimbal_cmd_.camera_name, get_airlib_pose(0, 0.6, 0, gimbal_cmd_.target_quat),
                                      gimbal_cmd_.vehicle_name);
   }
 
