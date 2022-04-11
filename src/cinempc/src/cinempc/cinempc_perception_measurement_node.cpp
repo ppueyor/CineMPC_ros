@@ -204,6 +204,7 @@ int main(int argc, char** argv)
     auto const now = std::chrono::system_clock::now();
     auto const in_time_t = std::chrono::system_clock::to_time_t(now);
 
+    std::cout << targets_names.at(0) << std::endl;
     folder_name << project_folder << "images/" << targets_names.at(0) << "/"
                 << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << "/";
     common_utils::FileSystem::createDirectory(folder_name.str());

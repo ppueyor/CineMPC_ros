@@ -1,0 +1,127 @@
+{
+  "SeeDocsAt": "https://github.com/Microsoft/AirSim/blob/master/docs/settings.md",
+  "SettingsVersion": 1.2,
+  "SimMode": "Multirotor",
+  "ViewMode": "Fpv",
+  "LogMessagesVisible": false,
+  "CameraDirector": {
+    "FollowDistance": 10,
+    "X": 0, "Y": 10, "Z": -1,
+    "Pitch": 0, "Roll": 0, "Yaw": 0
+  },
+   "CameraDefaults": {
+  "CaptureSettings": [
+    {
+    
+              "PublishToRos": 1,
+      "ImageType": 0,
+      "Width": 960,
+      "Height": 540,
+      "CinematicCamera": true,
+      "FOV_Degrees": 0
+     }, {
+     
+              "PublishToRos": 1,
+      "ImageType": 1,
+      "Width": 960,
+      "Height": 540
+     }, {
+      "ImageType": 2,
+      "Width": 960,
+      "Height": 540
+     }, {
+      "ImageType": 3,
+      "Width": 960,
+      "Height": 540,      
+              "FOV_Degrees": 0
+     }, {
+      "ImageType": 4,
+      "Width": 960,
+      "Height": 540
+     },
+     {
+      "ImageType": 5,
+      "Width": 960,
+      "Height": 540
+     },
+     {
+      "ImageType": 6,
+      "Width": 960,
+      "Height": 540
+     }
+  ],
+   "Gimbal": {
+      		"Stabilization": 1,
+      		
+      "Pitch": 0, "Roll": 0, "Yaw": 0
+      		}
+  },
+  "Vehicles": {
+    "drone_1": {
+      "VehicleType": "SimpleFlight",
+      "DefaultVehicleState": "Armed",
+      "EnableCollisionPassthrogh": false,
+      "EnableCollisions": true,
+      "AllowAPIAlways": true,
+      "RC": {
+        "RemoteControlID": 0,
+        "AllowAPIWhenDisconnected": false
+      },
+      "Cameras": {
+        "fpv": {
+        "Gimbal": {
+      		"Stabilization": 1
+      		},
+          "CaptureSettings": [
+            {
+       "PublishToRos": 1,
+      "ImageType": 0,
+      "Width": 960,
+      "Height": 540,
+      "CinematicCamera": true,
+      "FOV_Degrees": 0
+     }, {
+     
+      "PublishToRos": 1,
+      "ImageType": 1,
+      "Width": 960,
+      "Height": 540
+     }, {
+              "PublishToRos": 1,
+      "ImageType": 2,
+      "Width": 960,
+      "Height": 540
+     }, {
+              "PublishToRos": 1,
+      "ImageType": 3,
+      "Width": 960,
+      "Height": 540,      
+              "FOV_Degrees": 0
+     }, {
+      "ImageType": 4,
+      "Width": 960,
+      "Height": 540
+     },
+     {
+      "ImageType": 5,
+      "Width": 960,
+      "Height": 540
+     },
+     {
+      "ImageType": 6,
+      "Width": 960,
+      "Height": 540
+     }
+          ],
+          "Gimbal": {
+      		"Stabilization": 1      	
+      		},
+          "X": 0, "Y": 0.6, "Z": 0,
+          "Pitch": 0, "Roll": 0, "Yaw": 0
+        }
+      },
+      "X": 0, "Y": 0, "Z": 0,
+      "Pitch": 0, "Roll": 0, "Yaw": -90
+    }
+  }
+}
