@@ -17,6 +17,7 @@ There is a generic version of these files in `cinempc/src/user `so the values ca
 To reproduce the two experiments of the manuscript, rename the folder to `user` of the experiments to run:
 -	`/cinempc/src/user_plane, /cinempc/include/user_plane` to `/cinempc/src/user, /cinempc/include/user`
 -	`/cinempc/src/user_dolly, /cinempc/include/user_dolly`  to  `/cinempc/src/user, /cinempc/include/user`
+-	Copy the settings file under `AirSim_settings` to the appropiate directory
   
 ## Prerequisites  
 The prerrequisites that must be installed before running the experiments are:
@@ -47,6 +48,6 @@ The prerrequisites that must be installed before running the experiments are:
 ## Running an example  
   
 1. Open your project in AirSim and run it.
-2. Launch `roslaunch airsim_ros_pkgs airsim_all.launch` in one terminal
-3. Launch `roslaunch cinempc cinempc_all.launch` In another terminal
-4. Let the magic start!
+3. Launch `roslaunch airsim_ros_pkgs airsim_all.launch` in one terminal
+4. Launch `roslaunch cinempc cinempc_all.launch` In another terminal
+5. Let the magic start!
