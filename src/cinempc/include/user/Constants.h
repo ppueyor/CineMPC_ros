@@ -93,9 +93,9 @@ const std::string camera_name = "fpv";
 
 // Definition of folders
 const std::string project_folder = "/home/pablo/Desktop/AirSim_update/AirSim_ros/ros/src/cinempc/";
-const std::string config_file_yolo = "/home/pablo/Downloads/darknet/cfg/yolov4.cfg";
-const std::string weights_file_yolo = "/home/pablo/Downloads/darknet/yolov4.weights";
-const std::string names_file_yolo = "/home/pablo/Downloads/darknet/cfg/coco.names";
+const std::string config_file_yolo = "/home/pablo/Documents/install/darknet/cfg/yolov4.cfg";
+const std::string weights_file_yolo = "/home/pablo/Documents/install/darknet/cfg/yolov4.weights";
+const std::string names_file_yolo = "/home/pablo/Documents/install/darknet/cfg/coco.names";
 
 // KF_parameters
 const int kf_states = 6, kf_measurements = 3;

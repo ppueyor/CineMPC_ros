@@ -12,3 +12,4 @@ airsim_ros_pkgs/IntrinsicsCamera intrinsics_camera
 cinempc/Constraints constraints
 cinempc/MPCResultPlotValues mpc_plot_values
 geometry_msgs/Point drone_position_gt
+geometry_msgs/Quaternion drone_rot_gt

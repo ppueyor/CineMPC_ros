@@ -101,7 +101,9 @@ void readDroneStateCallback(const nav_msgs::Odometry::ConstPtr& msg)
 
 void readGimbalOrientationCallback(const airsim_ros_pkgs::GimbalAngleQuatCmd::ConstPtr& msg)
 {
-  drone_pose.orientation = msg->orientation;
+    drone_pose.orientation = msg->orientation;
+    plot_values.drone_rot_gt = msg->orientation;
+    
 }
 
 void readIntrinsicsCallback(const airsim_ros_pkgs::IntrinsicsCamera::ConstPtr& msg)

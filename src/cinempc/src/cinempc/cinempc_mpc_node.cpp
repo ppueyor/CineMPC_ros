@@ -591,9 +591,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  {
 		lowerbound = vel_foc_lowest;
 		upperbound = vel_foc_highest;
-	  }
-	  else
-	  {
+          }
+           else
+          {
 		lowerbound = 0;
 		upperbound = 0;
 	  }
