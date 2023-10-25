@@ -1,4 +1,4 @@
 std_msgs/Header header
 geometry_msgs/Pose drone_pose
-airsim_ros_pkgs/IntrinsicsCamera intrinsics
+cinempc/IntrinsicsCamera intrinsics
 geometry_msgs/Point velocity

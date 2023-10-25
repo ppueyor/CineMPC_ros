@@ -3,9 +3,9 @@
 
 const double PI = 3.14159265358979323846;  //(mm)
 
-const bool static_target = false, use_perception = true, drone_moving = true, use_cineMPC = true, log_costs = true,
-           dynamic_scene = true, publish_topics_gt = true, floor_constraints = false, take_off_when_start = true,
-           save_imgs = true, add_noise = false;
+const bool static_target = true, use_perception = true, drone_moving = true, gimbal_moving = true, use_cineMPC = true,
+           log_costs = true, dynamic_scene = false, publish_topics_gt = true, floor_constraints = false,
+           take_off_when_start = true, save_imgs = true, add_noise = false, real_depth = true, nwu = true;
 
 // simulation and MPC variables
 const double sim_speed = 2;
@@ -29,13 +29,19 @@ const double image_y_third_up = picture_height_px / 3;
 const double image_y_center = picture_height_px / 2;
 
 // Targets parameters
-std::vector<std::string> targets_names = { "Plane" };
-std::vector<std::string> targets_classes = { "aeroplane" };
+std::vector<std::string> targets_names = { "Target" };
+std::vector<std::string> targets_classes = { "target_class" };
 const bool is_person = false;
 const double target_1_yaw_gt = -PI / 2, target_1_pitch_gt = 0;
 const double target_1_height = 2, target_1_width = 4;
 
 // C-Set of constraints of the problem
+// This is the max limit it can get (safety reasons)
+const double position_hard = 1.5;
+const double x_lowest_hard = -position_hard, x_highest_hard = position_hard;
+const double y_lowest_hard = -position_hard, y_highest_hard = position_hard;
+const double z_lowest_hard = -position_hard, z_highest_hard = position_hard;
+
 const double position = 40;
 const double x_lowest = -position, x_highest = position;
 const double y_lowest = -position, y_highest = position;
@@ -102,3 +108,14 @@ const int kf_states = 6, kf_measurements = 3;
 const double kf_dt = 0.2;  // * sim_frequency;
 const double kf_a = 1, kf_c = 1, kf_q = 1, kf_r = 0.5, kf_p = 2;
 const double kf_init_x = 0, kf_init_y = -20, kf_init_z = 0, kf_init_vx = 0, kf_init_vy = -2, kf_init_vz = 0;
+
+// topics
+const std::string image_rgb_topic = "/airsim_node/" + vehicle_name + "/" + camera_name + "/Scene";
+const std::string image_depth_topic = "/airsim_node/" + vehicle_name + "/" + camera_name + "/DepthVis";
+const std::string set_intrinsics_topic = "/airsim_node/" + vehicle_name + "/" + camera_name + "/set_intrinsics";
+const std::string current_zoom_topic = "/cinempc/current_zoom";
+const std::string current_zoom_focus_topic = "/cinempc/current_zoom_focus";
+const std::string get_drone_position_topic = "/airsim_node/" + vehicle_name + "/odom_local_ned";
+const std::string get_drone_orientation_topic = "/airsim_node/gimbal_angle_quat_cmd";
+const std::string set_drone_pose_topic = "/airsim_node/" + vehicle_name + "/set_vehicle_pose";
+const std::string take_off_command = "/airsim_node/" + vehicle_name + "/takeoff";

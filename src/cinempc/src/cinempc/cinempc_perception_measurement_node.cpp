@@ -133,8 +133,9 @@ void newImageReceivedCallback(const cinempc::MeasurementIn& msg)
   {
     for (DarkHelp::PredictionResult result_vector : results)
     {
-      for (string target_class : targets_classes)
+      for (int i = 0; i < targets_classes.size(); i++)
       {
+        std::string target_class = targets_classes.at(i);
         if (result_vector.name.find(target_class) != std::string::npos && result_vector.best_probability > 0.8)
         {
           targets_state.push_back(extractTargetStateFromImg(result_vector, depth_cv_ptr, msg));
@@ -182,7 +183,6 @@ void restartSimulation(const std_msgs::Bool bool1)
   folder_name.str("");
   folder_name << project_folder << "images/" << targets_names.at(0) << "/"
               << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << "/";
-  common_utils::FileSystem::createDirectory(folder_name.str());
 }
 
 int main(int argc, char** argv)
@@ -207,7 +207,6 @@ int main(int argc, char** argv)
     std::cout << targets_names.at(0) << std::endl;
     folder_name << project_folder << "images/" << targets_names.at(0) << "/"
                 << std::put_time(std::localtime(&in_time_t), "%d_%m_%Y-%H_%M_%S") << "/";
-    common_utils::FileSystem::createDirectory(folder_name.str());
     ros::Subscriber image_received_sub =
         n.subscribe("/cinempc/perception_measurement_in", 1000, newImageReceivedCallback);
 

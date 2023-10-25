@@ -1,15 +1,18 @@
 float32 time_ms
 float32 sequence
-geometry_msgs/Point target_world_gt
-geometry_msgs/Point target_world_perception
-geometry_msgs/Point target_world_kf
+geometry_msgs/Point[] targets_world_gt
+geometry_msgs/Point[] targets_world_perception
+geometry_msgs/Point[] targets_world_kf
 float32 d_gt
+int32 zoom_steps
+int32 focus_steps
 geometry_msgs/Point v_target_kf
 geometry_msgs/Point v_target_gt
 geometry_msgs/Quaternion target_rot_gt
 geometry_msgs/Quaternion target_rot_perception
-airsim_ros_pkgs/IntrinsicsCamera intrinsics_camera
+cinempc/IntrinsicsCamera intrinsics_camera
 cinempc/Constraints constraints
 cinempc/MPCResultPlotValues mpc_plot_values
 geometry_msgs/Point drone_position_gt
 geometry_msgs/Quaternion drone_rot_gt
+

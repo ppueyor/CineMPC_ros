@@ -17,7 +17,6 @@
 #include <vector>
 
 #include "cinempc/cinempc_mpc_node.h"
-#include "common/common_utils/Utils.hpp"
 #include "cppad/ipopt/solve.hpp"
 #include "ros/ros.h"
 

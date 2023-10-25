@@ -5,10 +5,10 @@ float32 JFoc
 float32 Jp
 float32 dn
 float32 df
-float32 im_u
-float32 im_v_up
-float32 im_v_center
-float32 im_v_down
+float32[] im_u
+float32[] im_v_up
+float32[] im_v_center
+float32[] im_v_down
 float32 relative_pitch
 float32 relative_yaw
 float32 relative_roll

@@ -7,6 +7,7 @@ cinempc::MPCResultPlotValues plot_values;
 
 ros::Publisher results_pub;
 
+double fixed_focal_length = 0;
 // indexes to reference variables inside the `vars` vector
 size_t x_start = 0;
 size_t y_start = x_start + MPC_N;
@@ -72,7 +73,7 @@ public:
   }
 
   typedef CPPAD_TESTVECTOR(AD<double>) ADvector;
-  void operator()(ADvector &fg, const ADvector &vars)
+  void operator()(ADvector& fg, const ADvector& vars)
   {
 	// calculate errors
 	int index_closest_target = 0;
@@ -81,20 +82,29 @@ public:
 	{
 	  AD<double> Jp = 0, Jim = 0, JDoF = 0, JFoc = 0;
 	  // J_DoF
-	  AD<double> hyperfocal_distance_mms = cinempc::calculate_hyperfocal_distance_DoF<AD<double>>(
-		  vars[focal_length_start + t], vars[aperture_start + t]);
+	  AD<double> hyperfocal_distance_mms =
+		  cinempc::calculate_hyperfocal_distance_DoF<AD<double>>(fixed_focal_length, 1.2);
 
 	  AD<double> near_acceptable_distance = cinempc::calculate_near_distance_DoF<AD<double>>(
 		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
-		  (AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
+		  (AD<double>)fixed_focal_length / (AD<double>)1000);
 
 	  AD<double> far_acceptable_distance = cinempc::calculate_far_distance_DoF<AD<double>>(
 		  vars[focus_distance_start + t], ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
-		  (AD<double>)vars[focal_length_start + t] / (AD<double>)1000);
+		  (AD<double>)fixed_focal_length / (AD<double>)1000);
+
+	  AD<double> near_acceptable_distance_min = cinempc::calculate_near_distance_DoF<AD<double>>(
+		  focus_lowest, ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
+		  (AD<double>)fixed_focal_length / (AD<double>)1000);
+	  AD<double> near_acceptable_distance_max = cinempc::calculate_near_distance_DoF<AD<double>>(
+		  focus_highest, ((AD<double>)hyperfocal_distance_mms / (AD<double>)1000),
+		  (AD<double>)fixed_focal_length / (AD<double>)1000);
 
 	  AD<double> cost_near = CppAD::pow(near_acceptable_distance - constraints.dn_star, 2);
 	  JDoF += constraints.weights.w_dn * (cost_near);
 
+	  // JDoF += 500 * CppAD::pow(vars[focus_distance_start + t] - 10, 2);
+	  // JDoF += 10 * CppAD::pow(vars[focus_distance_start + t] - 7, 2);
 	  AD<double> cost_far = CppAD::pow(far_acceptable_distance - constraints.df_star, 2);
 	  JDoF += constraints.weights.w_df * (cost_far);
 
@@ -106,17 +116,22 @@ public:
 	  }
 
 	  fg[0] += JDoF + JFoc;	 // one time /camera
-	  for (int j = 0; j < target_states.size(); j++)
+	  for (int target_index = 0; target_index < target_states.size(); target_index++)
 	  {
 		// calculate relative distances
-		AD<double> relative_x_target = target_states.at(j).poses_top.at(t).position.x - (vars[x_start + t]);
-		AD<double> relative_y_target = target_states.at(j).poses_top.at(t).position.y - (vars[y_start + t]);
-		AD<double> relative_z_up_target = target_states.at(j).poses_top.at(t).position.z - (vars[z_start + t]);
-		AD<double> relative_z_center_target = target_states.at(j).poses_center.at(t).position.z - (vars[z_start + t]);
-		AD<double> relative_z_down_target = target_states.at(j).poses_bottom.at(t).position.z - (vars[z_start + t]);
+		AD<double> relative_x_target =
+			target_states.at(target_index).poses_top.at(t).position.x - (vars[x_start + t]);  // 1
+		AD<double> relative_y_target =
+			target_states.at(target_index).poses_top.at(t).position.y - (vars[y_start + t]);  // 0.03
+		AD<double> relative_z_up_target =
+			+target_states.at(target_index).poses_top.at(t).position.z - (vars[z_start + t]);  // 0.05
+		AD<double> relative_z_center_target =
+			target_states.at(target_index).poses_center.at(t).position.z - (vars[z_start + t]);
+		AD<double> relative_z_down_target =
+			target_states.at(target_index).poses_bottom.at(t).position.z - (vars[z_start + t]);
 
 		Eigen::Matrix<AD<double>, 3, 3> drone_R_target =
-			cinempc::quat_to_R_matrix<AD<double>>(target_states.at(j).poses_top.at(t).orientation);
+			cinempc::quat_to_R_matrix<AD<double>>(target_states.at(target_index).poses_top.at(t).orientation);
 
 		Eigen::Matrix<AD<double>, 3, 3> new_drone_R = cinempc::RPY_to_R_matrix<AD<double>>(
 			vars[roll_gimbal_start + t], vars[pitch_gimbal_start + t], vars[yaw_gimbal_start + t]);
@@ -131,40 +146,51 @@ public:
 		cinempc::Pixel<AD<double>> pixel_center_target = cinempc::calculate_image_position_from_3D<AD<double>>(
 			vars[focal_length_start + t], relative_x_target, relative_y_target, relative_z_center_target, new_drone_R);
 
+		cinempc::Pixel<AD<double>> pixel_up_target1 = cinempc::calculate_image_position_from_3D<AD<double>>(
+			vars[focal_length_start + t] - 2, relative_x_target, relative_y_target, relative_z_up_target, new_drone_R);
+
+		cinempc::Pixel<AD<double>> pixel_up_target10 = cinempc::calculate_image_position_from_3D<AD<double>>(
+			10, relative_x_target, relative_y_target, relative_z_up_target, new_drone_R);
+		cinempc::Pixel<AD<double>> pixel_up_target5 = cinempc::calculate_image_position_from_3D<AD<double>>(
+			5, relative_x_target, relative_y_target, relative_z_up_target, new_drone_R);
+
+		cinempc::Pixel<AD<double>> pixel_up_target2 = cinempc::calculate_image_position_from_3D<AD<double>>(
+			vars[focal_length_start + t] + 2, relative_x_target, relative_y_target, relative_z_up_target, new_drone_R);
+
 		AD<double> current_pixel_u_target = pixel_up_target.x;
 		AD<double> current_pixel_v_target_up = pixel_up_target.y;
 		AD<double> current_pixel_v_target_down = pixel_down_target.y;
 		AD<double> current_pixel_v_target_center = pixel_center_target.y;
-		if (constraints.weights.w_img_targets.at(j).x > 0)
+		if (constraints.weights.w_img_targets.at(target_index).x > 0)
 		{
-		  AD<double> weight = constraints.weights.w_img_targets.at(j).x;
+		  AD<double> weight = constraints.weights.w_img_targets.at(target_index).x;
 
 		  AD<double> cost_pixel_u_target =
-			  CppAD::pow(current_pixel_u_target - constraints.targets_im_top_star.at(j).x, 2);
-		  if (cost_pixel_u_target < CppAD::pow(tolerance_pixel_x, 2))
-		  {
-			weight = weight * tolerance_reduce_weight;
-		  }
+			  CppAD::pow(current_pixel_u_target - constraints.targets_im_top_star.at(target_index).x, 2);
+		  // if (cost_pixel_u_target < CppAD::pow(tolerance_pixel_x, 2))
+		  //{
+		  //	weight = weight * tolerance_reduce_weight;
+		  //}
 		  Jim += weight * cost_pixel_u_target;
 		}
-		if (constraints.weights.w_img_targets.at(j).y_top > 0)
+		if (constraints.weights.w_img_targets.at(target_index).y_top > 0)
 		{
-		  AD<double> weight = constraints.weights.w_img_targets.at(j).y_top;
+		  AD<double> weight = constraints.weights.w_img_targets.at(target_index).y_top;
 		  AD<double> cost_pixel_v_target_up =
-			  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_top_star.at(j).y, 2);
-		  if (cost_pixel_v_target_up < CppAD::pow(tolerance_pixel_y, 2))
-		  {
-			weight = weight * tolerance_reduce_weight;
-		  }
+			  CppAD::pow(current_pixel_v_target_up - constraints.targets_im_top_star.at(target_index).y, 2);
+		  //   if (cost_pixel_v_target_up < CppAD::pow(tolerance_pixel_y, 2))
+		  //   {
+		  // 	weight = weight * tolerance_reduce_weight;
+		  //   }
 		  Jim += weight * cost_pixel_v_target_up;
 		}
 
-		if (constraints.weights.w_img_targets.at(j).y_center > 0)
+		if (constraints.weights.w_img_targets.at(target_index).y_center > 0)
 		{
-		  AD<double> weight = constraints.weights.w_img_targets.at(j).y_center;
+		  AD<double> weight = constraints.weights.w_img_targets.at(target_index).y_center;
 
 		  AD<double> cost_pixel_v_target_center =
-			  CppAD::pow(current_pixel_v_target_center - constraints.targets_im_center_star.at(j).y, 2);
+			  CppAD::pow(current_pixel_v_target_center - constraints.targets_im_center_star.at(target_index).y, 2);
 		  if (cost_pixel_v_target_center < CppAD::pow(tolerance_pixel_y, 2))
 		  {
 			weight = weight * tolerance_reduce_weight;
@@ -172,12 +198,12 @@ public:
 		  Jim += weight * cost_pixel_v_target_center;
 		}
 
-		if (constraints.weights.w_img_targets.at(j).y_bottom > 0)
+		if (constraints.weights.w_img_targets.at(target_index).y_bottom > 0)
 		{
-		  AD<double> weight = constraints.weights.w_img_targets.at(j).y_bottom;
+		  AD<double> weight = constraints.weights.w_img_targets.at(target_index).y_bottom;
 
 		  AD<double> cost_pixel_v_target_bottom =
-			  CppAD::pow(current_pixel_v_target_down - constraints.targets_im_bottom_star.at(j).y, 2);
+			  CppAD::pow(current_pixel_v_target_down - constraints.targets_im_bottom_star.at(target_index).y, 2);
 		  if (cost_pixel_v_target_bottom < CppAD::pow(tolerance_pixel_y, 2))
 		  {
 			weight = weight * tolerance_reduce_weight;
@@ -191,28 +217,35 @@ public:
 		if (distance_2D_target < minimum_distance_2D_target)
 		{
 		  minimum_distance_2D_target = distance_2D_target;
-		  index_closest_target = j;
+		  index_closest_target = target_index;
 		}
 
-		if (constraints.weights.w_d_targets.at(j) > 0)
+		if (constraints.weights.w_d_targets.at(target_index) > 0)
 		{
-		  AD<double> cost_d_target = CppAD::pow((distance_2D_target - constraints.targets_d_star.at(j)), 2);
-		  Jp += constraints.weights.w_d_targets.at(j) * cost_d_target;
+		  AD<double> cost_d_target = CppAD::pow((distance_2D_target - constraints.targets_d_star.at(target_index)), 2);
+		  Jp += constraints.weights.w_d_targets.at(target_index) * cost_d_target;
 		}
 		Eigen::Matrix<AD<double>, 3, 3> new_drone_R_target;
-		if (constraints.weights.w_R_targets.at(j) > 0)
+		if (constraints.weights.w_R_targets.at(target_index) > 0)
 		{
 		  Eigen::Matrix<AD<double>, 3, 3> drone_R_star =
-			  cinempc::quat_to_R_matrix<AD<double>>(constraints.targets_orientation_star.at(j));
+			  cinempc::quat_to_R_matrix<AD<double>>(constraints.targets_orientation_star.at(target_index));
 		  new_drone_R_target = new_drone_R.transpose() * drone_R_target;
 
 		  AD<double> cost_R_target = (new_drone_R_target - drone_R_star).norm();
-		  Jp += constraints.weights.w_R_targets.at(j) * cost_R_target;
+		  Jp += constraints.weights.w_R_targets.at(target_index) * cost_R_target;
 		}
+
+		// Jp += CppAD::pow((vars[vel_x_start] - 0), 2);
+		// Jp += CppAD::pow((vars[vel_y_start] - 0), 2);
+		// Jp += CppAD::pow((vars[vel_z_start] - 0), 2);
+		// Jp += CppAD::pow((vars[vel_ang_x_start] - 0), 2);
+		// Jp += CppAD::pow((vars[vel_ang_y_start] - 0), 2);
+		// Jp += CppAD::pow((vars[vel_ang_z_start] - 0), 2);
 
 		fg[0] += Jp + Jim;	// for each target
 
-		if (t == 0 && j == 0)
+		if (t == 0)
 		{
 		  plot_values.Jp = Value(Jp);
 		  plot_values.Jim = Value(Jim);
@@ -220,10 +253,10 @@ public:
 		  plot_values.JFoc = Value(JFoc);
 		  plot_values.dn = Value(near_acceptable_distance);
 		  plot_values.df = Value(far_acceptable_distance);
-		  plot_values.im_u = Value(current_pixel_u_target);
-		  plot_values.im_v_up = Value(current_pixel_v_target_up);
-		  plot_values.im_v_down = Value(current_pixel_v_target_down);
-		  plot_values.im_v_center = Value(current_pixel_v_target_center);
+		  plot_values.im_u[target_index] = Value(current_pixel_u_target);
+		  plot_values.im_v_up[target_index] = Value(current_pixel_v_target_up);
+		  plot_values.im_v_down[target_index] = Value(current_pixel_v_target_down);
+		  plot_values.im_v_center[target_index] = Value(current_pixel_v_target_center);
 		  plot_values.intrinsics_camera.focal_length = Value(vars[focal_length_start + 0]);
 		  plot_values.intrinsics_camera.aperture = Value(vars[aperture_start + 0]);
 		  plot_values.intrinsics_camera.focus_distance = Value(vars[focus_distance_start + 0]) * 100;
@@ -238,23 +271,29 @@ public:
 			std::cout << "JDoF " << std::endl
 					  << "--------- " << std::endl
 					  << "   Dn:  " << near_acceptable_distance << std::endl
+					  << "   Dn_min:  " << near_acceptable_distance_min << std::endl
+					  << "   Dn_max:  " << near_acceptable_distance_max << std::endl
 					  << "   dn_desired:  " << constraints.dn_star << std::endl
 					  << "   Df:  " << far_acceptable_distance << std::endl
-					  << "   df_desired:  " << constraints.df_star << std::endl;
+					  << "   df_desired:  " << constraints.df_star << std::endl
+					  << "   Aperture:  " << Value(vars[aperture_start + 0]) << std::endl
+					  << "   Focal:  " << fixed_focal_length << std::endl
+					  << "   Focus:  " << Value(vars[focus_distance_start + 0]) << std::endl;
 
 			std::cout << "Jim " << std::endl
 					  << "--------- " << std::endl
 					  << "   current_pixel_u_target:  " << current_pixel_u_target << std::endl
-					  << "   current_pixel_u_target_desired:  " << constraints.targets_im_top_star.at(j).x << std::endl
+					  << "   current_pixel_u_target_desired:  " << constraints.targets_im_top_star.at(target_index).x
+					  << std::endl
 					  << "   current_pixel_v_up_target:  " << current_pixel_v_target_up << std::endl
-					  << "   current_pixel_v_target_up_desired:  " << constraints.targets_im_top_star.at(j).y
+					  << "   current_pixel_v_target_up_desired:  " << constraints.targets_im_top_star.at(target_index).y
 					  << std::endl
 					  << "   current_pixel_v_down_target:  " << current_pixel_v_target_down << std::endl
-					  << "   current_pixel_v_target_down_desired:  " << constraints.targets_im_bottom_star.at(j).y
-					  << std::endl
+					  << "   current_pixel_v_target_down_desired:  "
+					  << constraints.targets_im_bottom_star.at(target_index).y << std::endl
 					  << "   current_pixel_v_center_target:  " << current_pixel_v_target_center << std::endl
-					  << "   current_pixel_v_target_center_desired:  " << constraints.targets_im_center_star.at(j).y
-					  << std::endl;
+					  << "   current_pixel_v_target_center_desired:  "
+					  << constraints.targets_im_center_star.at(target_index).y << std::endl;
 
 			std::cout << "JFoc " << std::endl
 					  << "--------- " << std::endl
@@ -265,22 +304,25 @@ public:
 			std::cout << "Jp " << std::endl
 					  << "--------- " << std::endl
 					  << "   d_target:  " << distance_2D_target << std::endl
-					  << "   d_target_desired:  " << constraints.targets_d_star.at(j) << std::endl
+					  << "   d_target_desired:  " << constraints.targets_d_star.at(target_index) << std::endl
 					  << "   roll_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).roll
 					  << std::endl
 					  << "   roll_target_desired:  "
-					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).roll << endl
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(target_index)).roll
+					  << endl
 					  << "   yaw_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).yaw << std::endl
 					  << "   yaw_target_desired:  "
-					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).yaw << endl
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(target_index)).yaw
+					  << endl
 					  << "   pitch_target:  " << cinempc::R_matrix_to_RPY<AD<double>>(new_drone_R_target).pitch
 					  << std::endl
 					  << "   pitch_target_desired:  "
-					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(j)).pitch
+					  << cinempc::quat_to_RPY<AD<double>>(constraints.targets_orientation_star.at(target_index)).pitch
 					  << std::endl;
 
 			std::cout << "RELATIVE DISTANCE " << std::endl
 					  << "--------- " << std::endl
+					  << "   target:  " << targets_names[target_index] << std::endl
 					  << "   relative_target_mpc_x_var:  " << relative_x_target << std::endl
 					  << "   relative_target_mpc_y_var:  " << relative_y_target << std::endl
 					  << "   relative_target_mpc_z_var:  " << relative_z_up_target << std::endl
@@ -308,6 +350,7 @@ public:
 	fg[MPC_N + pitch_gimbal_start] = vars[pitch_gimbal_start];
 	fg[MPC_N + yaw_gimbal_start] = vars[yaw_gimbal_start];
 
+	fg[MPC_N + focus_distance_start] = vars[focus_distance_start];
 	fg[MPC_N + focal_length_start] = vars[focal_length_start];
 	fg[MPC_N + aperture_start] = vars[aperture_start];
 
@@ -400,7 +443,7 @@ public:
   }
 };
 
-void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
+void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr& msg)
 {
   bool ok = true;
   size_t i;
@@ -424,6 +467,10 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	vars[i] = 0;
   }
 
+  double current_position_x = msg->drone_state_global.drone_pose.position.x;
+  double current_position_y = msg->drone_state_global.drone_pose.position.y;
+  double current_position_z = msg->drone_state_global.drone_pose.position.z;
+
   // Set the initial variable values
   vars[x_start] = msg->drone_state.drone_pose.position.x;
   vars[y_start] = msg->drone_state.drone_pose.position.y;
@@ -437,6 +484,7 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 
   vars[focus_distance_start] = msg->drone_state.intrinsics.focus_distance;
   vars[focal_length_start] = msg->drone_state.intrinsics.focal_length;
+  fixed_focal_length = msg->drone_state.intrinsics.focal_length;
   vars[aperture_start] = msg->drone_state.intrinsics.aperture;
 
   vars[vel_x_start] = msg->drone_state.velocity.x;
@@ -453,46 +501,34 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	double lowerbound, upperbound;
 	if (i >= x_start && i < y_start)
 	{
-	  if (drone_moving)
-	  {
-		lowerbound = y_lowest;
-		upperbound = y_highest;
-	  }
-	  else
-	  {
-		lowerbound = -0.0001;
-		upperbound = 0.0001;
-	  }
+	  double x_lowest_mpc = std::max(x_lowest, x_lowest_hard - current_position_x);
+	  double x_higuest_mpc = std::min(x_highest, x_highest_hard - current_position_x);
+
+	  lowerbound = x_lowest_mpc;
+	  upperbound = x_higuest_mpc;
 	}
 	else if (i >= y_start && i < z_start)
 	{
-	  if (drone_moving)
-	  {
-		lowerbound = y_lowest;
-		upperbound = y_highest;
-	  }
-	  else
-	  {
-		lowerbound = -0.0001;
-		upperbound = 0.0001;
-	  }
+	  double y_lowest_mpc = std::max(y_lowest, y_lowest_hard - current_position_y);
+	  double y_higuest_mpc = std::min(y_highest, y_highest_hard - current_position_y);
+	  lowerbound = y_lowest_mpc;
+	  upperbound = y_higuest_mpc;
 	}
 	else if (i >= z_start && i < roll_gimbal_start)
 	{
-	  if (drone_moving && floor_constraints)
+	  double z_lowest_mpc = std::max(z_lowest, z_lowest_hard - current_position_z);
+	  double z_higuest_mpc = std::min(z_highest, z_highest_hard - current_position_z);
+	  lowerbound = z_lowest_mpc;
+	  upperbound = z_higuest_mpc;
+	  if (floor_constraints)
 	  {
-		lowerbound = -0.3;	// y_lowest;
-		upperbound = msg->floor_pos - 0.2;
+		lowerbound = -0.3;					// y_lowest;
+		upperbound = msg->floor_pos - 0.2;	// hard constraint
 	  }
 	  else if (!floor_constraints)
 	  {
 		lowerbound = z_lowest;
 		upperbound = z_highest;
-	  }
-	  else
-	  {
-		lowerbound = -0.0001;
-		upperbound = 0.0001;
 	  }
 	}
 
@@ -552,33 +588,81 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	}
 	else if (i >= vel_x_start && i < vel_y_start)
 	{
-	  lowerbound = vel_x_lowest;
-	  upperbound = vel_x_highest;
+	  if (drone_moving)
+	  {
+		lowerbound = vel_x_lowest;
+		upperbound = vel_x_highest;
+	  }
+	  else
+	  {
+		lowerbound = 0;
+		upperbound = 0;
+	  }
 	}
 	else if (i >= vel_y_start && i < vel_z_start)
 	{
-	  lowerbound = vel_y_lowest;
-	  upperbound = vel_y_highest;
+	  if (drone_moving)
+	  {
+		lowerbound = vel_y_lowest;
+		upperbound = vel_y_highest;
+	  }
+	  else
+	  {
+		lowerbound = 0;
+		upperbound = 0;
+	  }
 	}
 	else if (i >= vel_z_start && i < vel_ang_x_start)
 	{
-	  lowerbound = vel_z_lowest;
-	  upperbound = vel_z_highest;
+	  if (drone_moving)
+	  {
+		lowerbound = vel_z_lowest;
+		upperbound = vel_z_highest;
+	  }
+	  else
+	  {
+		lowerbound = 0;
+		upperbound = 0;
+	  }
 	}
 	else if (i >= vel_ang_x_start && i < vel_ang_y_start)
 	{
-	  lowerbound = vel_ang_x_lowest;
-	  upperbound = vel_ang_x_highest;
+	  if (gimbal_moving)
+	  {
+		lowerbound = vel_ang_x_lowest;
+		upperbound = vel_ang_x_highest;
+	  }
+	  else
+	  {
+		lowerbound = 0;
+		upperbound = 0;
+	  }
 	}
 	else if (i >= vel_ang_y_start && i < vel_ang_z_start)
 	{
-	  lowerbound = vel_ang_y_lowest;
-	  upperbound = vel_ang_y_highest;
+	  if (gimbal_moving)
+	  {
+		lowerbound = vel_ang_y_lowest;
+		upperbound = vel_ang_y_highest;
+	  }
+	  else
+	  {
+		lowerbound = 0;
+		upperbound = 0;
+	  }
 	}
-	else if (i >= vel_ang_z_start && i < vel_focal_length_start)
+	else if (i >= vel_ang_z_start && i < vel_focus_distance_start)
 	{
-	  lowerbound = vel_ang_z_lowest;
-	  upperbound = vel_ang_z_highest;
+	  if (gimbal_moving)
+	  {
+		lowerbound = vel_ang_z_lowest;
+		upperbound = vel_ang_z_highest;
+	  }
+	  else
+	  {
+		lowerbound = 0;
+		upperbound = 0;
+	  }
 	}
 	else if (i >= vel_focus_distance_start && i < vel_focal_length_start)
 	{
@@ -591,9 +675,9 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  {
 		lowerbound = vel_foc_lowest;
 		upperbound = vel_foc_highest;
-          }
-           else
-          {
+	  }
+	  else
+	  {
 		lowerbound = 0;
 		upperbound = 0;
 	  }
@@ -743,7 +827,6 @@ void newStateReceivedCallback(const cinempc::MPCIncomingState::ConstPtr &msg)
 	  state.intrinsics.focus_distance = solution.x[focus_distance_start + i];
 	  state.intrinsics.focal_length = solution.x[focal_length_start + i];
 	  state.intrinsics.aperture = solution.x[aperture_start + i];
-
 	  state.velocity.x = solution.x[vel_x_start + i];
 	  state.velocity.y = solution.x[vel_y_start + i];
 	  state.velocity.z = solution.x[vel_z_start + i];
@@ -766,7 +849,7 @@ void restartSimulation(const std_msgs::Bool bool1)
   }
 }
 
-int main(int argc, char **argv)
+int main(int argc, char** argv)
 {
   ros::init(argc, argv, "cinempc_mpc");
   ros::NodeHandle n;
@@ -778,6 +861,14 @@ int main(int argc, char **argv)
   if (take_off_when_start)
   {
 	service_take_off.call(srv);
+  }
+
+  for (int i = 0; i < targets_classes.size(); i++)
+  {
+	plot_values.im_u.push_back(0);
+	plot_values.im_v_center.push_back(0);
+	plot_values.im_v_down.push_back(0);
+	plot_values.im_v_up.push_back(0);
   }
 
   ros::Subscriber restart_simulation =
