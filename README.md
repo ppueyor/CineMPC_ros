@@ -1,5 +1,8 @@
+# Examples with real drones and in simulation
 
-# CineMPC++ installation guide!  
+[![YouTube](https://img.youtube.com/vi/lgQPEApnQIE/0.jpg)](https://www.youtube.com/watch?v=lgQPEApnQIE)
+
+# CineMPC++ installation guide
   
 CineMPC++ is ready to play on a drone platform using ROS. The infrastructure to test it in the photorealistic simulator AirSim is provided as an example of use.  
 
@@ -59,3 +62,22 @@ To reproduce the two experiments of the manuscript, rename the folder to `user` 
 3. Launch `roslaunch airsim_ros_pkgs airsim_all.launch` in one terminal
 4. Launch `roslaunch cinempc cinempc_all.launch` In another terminal
 5. Let the magic start!
+
+# Paper available
+
+https://ieeexplore.ieee.org/document/10398502
+
+
+# Cite us!
+
+```
+@ARTICLE{10398502,
+  author={Pueyo, Pablo and Dendarieta, Juan and Montijano, Eduardo and Murillo, Ana C. and Schwager, Mac},
+  journal={IEEE Transactions on Robotics}, 
+  title={CineMPC: A Fully Autonomous Drone Cinematography System Incorporating Zoom, Focus, Pose, and Scene Composition}, 
+  year={2024},
+  volume={},
+  number={},
+  pages={1-18},
+  doi={10.1109/TRO.2024.3353550}}
+```
