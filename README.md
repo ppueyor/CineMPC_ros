@@ -2,9 +2,9 @@
 
 [![YouTube](https://img.youtube.com/vi/lgQPEApnQIE/0.jpg)](https://www.youtube.com/watch?v=lgQPEApnQIE)
 
-# CineMPC++ installation guide
+# CineMPC installation guide
   
-CineMPC++ is ready to play on a drone platform using ROS. The infrastructure to test it in the photorealistic simulator AirSim is provided as an example of use.  
+CineMPC is ready to play on a drone platform using ROS. The infrastructure to test it in the photorealistic simulator AirSim is provided as an example of use.  
 
 ## Prerequisites  
 The prerequisites that must be installed before running the experiments are:
@@ -36,7 +36,7 @@ The prerequisites that must be installed before running the experiments are:
 
 
   
-## Configuring CineMPC++ and AirSim 
+## Configuring CineMPC and AirSim 
 The experiments communicate with AirSim using ROS. An edition of the AirSim ROS wrapper (https://microsoft.github.io/AirSim/airsim_ros_pkgs/) is added to the repository. It includes some new topics/services to change the scene and the state of the drone and the camera intrinsics, according to the user's requirements. 
 
 1. `src/sirsim_ros_pkgs/CMakeLists.txt` -> AIRSIM_ROOT (line 5) to the path of the AirSim installation root folder
@@ -71,13 +71,11 @@ https://ieeexplore.ieee.org/document/10398502
 # Cite us!
 
 ```
-@ARTICLE{10398502,
-  author={Pueyo, Pablo and Dendarieta, Juan and Montijano, Eduardo and Murillo, Ana C. and Schwager, Mac},
-  journal={IEEE Transactions on Robotics}, 
-  title={CineMPC: A Fully Autonomous Drone Cinematography System Incorporating Zoom, Focus, Pose, and Scene Composition}, 
+@article{pueyo2024cinempc,
+  title={CineMPC: A Fully Autonomous Drone Cinematography System Incorporating Zoom, Focus, Pose, and Scene Composition},
+  author={Pueyo, Pablo and Dendarieta, Juan and Montijano, Eduardo and Murillo, Ana C and Schwager, Mac},
+  journal={IEEE Transactions on Robotics},
   year={2024},
-  volume={},
-  number={},
-  pages={1-18},
-  doi={10.1109/TRO.2024.3353550}}
+  publisher={IEEE}
+}
 ```
