@@ -30,7 +30,7 @@ The prerequisites that must be installed before running the experiments are:
 2. `cinempc/include/Constants.h` (line 113 onwards). Replace the topics and services of ROS with the ones used by the platform. The topics now are ready to use AirSim.
 3. Add the targets of the experiment in the file `cinempc/include/Constants.h`:
     - `targets_names` -> Add or replace the names of the recorded targets
-- `targets_classes` -> Add or replace the classes of the recorded targets
+    - `targets_classes` -> Add or replace the classes of the recorded targets
 4. Compile the project `(catkin_make)` from the root folder.  
 5. `source devel/setup.bash`; (or add to `source devel/setup.bash >> ~/.bashrc`)  
 
